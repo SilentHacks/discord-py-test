@@ -18,21 +18,22 @@ Typical usage::
         assert channel.last_message.content == "Pong!"
 """
 
+from . import _dpy_internals
+
+_dpy_internals.verify()
+
+from .actors import MemberActor
+from .backend import Backend
+from .backend.errors import BackendError, SetupError
+from .builders import ChannelHandle, GuildHandle, RoleHandle, UserHandle
 from .env import Env, run
-from .errors import BackendError, RouteNotImplemented, SetupError
-from .handles import (
-    ChannelHandle,
-    GuildHandle,
-    InteractionResult,
-    MemberActor,
-    ResponseMessage,
-    RoleHandle,
-    UserHandle,
-)
+from .http import RouteNotImplemented
+from .results import InteractionResult, ResponseMessage
 
 __version__ = "0.1.0"
 
 __all__ = (
+    "Backend",
     "BackendError",
     "ChannelHandle",
     "Env",

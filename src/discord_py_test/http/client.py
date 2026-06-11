@@ -1,10 +1,9 @@
-"""Fake transports: replacements for discord.py's HTTP client and webhook adapter.
+"""Fake transports replacing discord.py's HTTP client and webhook adapter.
 
-``HTTPClient.request`` is the single chokepoint for nearly all REST calls;
-interaction responses and followups go through the async webhook adapter
-instead. Both are routed into the same backend route table, and backend errors
-are raised as genuine ``discord.HTTPException`` subclasses with authentic
-Discord error codes.
+``HTTPClient.request`` is the chokepoint for nearly all REST calls;
+interaction responses/followups travel through the async webhook adapter
+instead. Both funnel into the same route table, and backend errors surface as
+genuine ``discord.HTTPException`` subclasses with authentic Discord codes.
 """
 
 from __future__ import annotations
@@ -15,9 +14,9 @@ from typing import Any, Optional
 import discord
 from discord.http import HTTPClient, Route
 
-from . import routes
-from .backend import Backend
-from .errors import BackendError
+from ..backend import Backend
+from ..backend.errors import BackendError
+from . import router, routes as _routes  # noqa: F401  (import registers all handlers)
 
 _API_PREFIX = "/api/v"
 
@@ -42,7 +41,7 @@ def _raise_for(error: BackendError) -> None:
 
 
 def _path_of(url: str) -> str:
-    # Strip "https://discord.com/api/v10" and query string from a routed URL.
+    # Strip "https://discord.com/api/v10" and the query string from a routed URL.
     path = url.split("?", 1)[0]
     idx = path.find(_API_PREFIX)
     if idx != -1:
@@ -62,7 +61,9 @@ class FakeHTTPClient(HTTPClient):
 
     async def static_login(self, token: str) -> Any:
         self.token = token
-        return dict(self.backend.bot_user)
+        from ..backend import serializers
+
+        return dict(serializers.user_payload(self.backend.bot_user))
 
     async def close(self) -> None:
         pass
@@ -71,11 +72,11 @@ class FakeHTTPClient(HTTPClient):
         raise RuntimeError("discord-py-test never opens a real gateway connection")
 
     async def get_from_cdn(self, url: str) -> bytes:
-        try:
-            return self.backend.cdn[url]
-        except KeyError:
+        blob = self.backend.cdn.get(url)
+        if blob is None:
             _raise_for(BackendError(404, 0, "asset not found"))
             raise AssertionError  # unreachable
+        return blob
 
     async def request(
         self,
@@ -88,11 +89,11 @@ class FakeHTTPClient(HTTPClient):
         json = kwargs.get("json")
         file_list = list(files or [])
         if form is not None:
-            payload, file_list = routes.parse_form(list(form), file_list)
+            payload, file_list = router.parse_form(list(form), file_list)
             if payload is not None:
                 json = payload
         try:
-            return routes.dispatch(
+            return router.dispatch(
                 self.backend,
                 route.method,
                 _path_of(route.url),
@@ -107,17 +108,16 @@ class FakeHTTPClient(HTTPClient):
 class FakeWebhookAdapter:
     """Replacement for ``discord.webhook.async_.AsyncWebhookAdapter``.
 
-    Interaction responses, followups and webhook messages all funnel through
-    the adapter's generic ``request``; everything else on the real adapter is
-    a thin wrapper around it, so inheriting those wrappers is enough.
+    The real adapter's named helpers (``create_interaction_response``,
+    ``execute_webhook``, ...) are thin wrappers around its generic
+    ``request``; delegating them against this fake's ``request`` keeps all of
+    that real code running.
     """
 
     def __init__(self, backend: Backend) -> None:
         self.backend = backend
 
     def __getattr__(self, name: str) -> Any:
-        # Delegate the named helpers (create_interaction_response, ...) to the
-        # real adapter implementation, bound against this fake's request().
         from discord.webhook.async_ import AsyncWebhookAdapter
 
         real = getattr(AsyncWebhookAdapter, name)
@@ -134,14 +134,14 @@ class FakeWebhookAdapter:
         params: Optional[dict[str, Any]] = None,
         **kwargs: Any,
     ) -> Any:
-        json = payload
+        json: Any = payload
         file_list = list(files or [])
         if multipart:
-            parsed, file_list = routes.parse_form(multipart, file_list)
+            parsed, file_list = router.parse_form(multipart, file_list)
             if parsed is not None:
                 json = parsed
         try:
-            return routes.dispatch(
+            return router.dispatch(
                 self.backend,
                 route.method,
                 _path_of(route.url),

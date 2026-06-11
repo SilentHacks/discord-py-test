@@ -53,7 +53,7 @@ async def test_button_click(env, channel, alice):
 
     assert click.acknowledged
     assert result.response.content == "Deleted all data."
-    assert result.response.payload["components"] == []
+    assert result.response.components == []
 
 
 async def test_cannot_click_missing_button(env, channel, alice):

@@ -3,16 +3,15 @@
 from __future__ import annotations
 
 import asyncio
-import contextlib
 from typing import Any, Optional
 
 import discord
-from discord.webhook.async_ import async_context
 
+from . import _dpy_internals
 from .backend import Backend
-from .errors import SetupError
+from .backend.errors import SetupError
+from .builders import GuildHandle, UserHandle
 from .gateway import FakeGateway
-from .handles import GuildHandle, UserHandle
 from .http import FakeHTTPClient, FakeWebhookAdapter
 
 # Coroutines that are long-lived background machinery, not work to settle on.
@@ -61,28 +60,24 @@ class Env:
 
         loop.create_task = tracking_create_task  # type: ignore[method-assign]
 
-        state = self.bot._connection
-        fake_http = FakeHTTPClient(self.backend, loop)
-        self.bot.http = fake_http  # type: ignore[misc]
-        state.http = fake_http
-        tree = getattr(self.bot, "tree", None)
-        if tree is not None:
-            # CommandTree captures its own HTTP reference at construction time.
-            tree._http = fake_http
-        # No guilds arrive before READY; don't wait for stragglers.
-        state.guild_ready_timeout = 0.0
-        self._adapter_token = async_context.set(FakeWebhookAdapter(self.backend))  # type: ignore[arg-type]
+        _dpy_internals.install_http(self.bot, FakeHTTPClient(self.backend, loop))
+        _dpy_internals.set_guild_ready_timeout(self.bot, 0.0)
+        self._adapter_token = _dpy_internals.set_webhook_adapter(FakeWebhookAdapter(self.backend))
 
-        gateway = FakeGateway(state)
+        gateway = FakeGateway(_dpy_internals.get_state(self.bot))
         self.backend.subscribers.append(gateway.feed)
 
         self._capture_errors()
+        # Runs the real login flow: identity, application info, setup_hook
+        # (where bots typically load extensions and sync their command tree).
         await self.bot.login("dpt.fake.token")
+        from .backend import serializers
+
         gateway.feed(
             "READY",
             {
                 "v": 10,
-                "user": self.backend.bot_user,
+                "user": dict(serializers.user_payload(self.backend.bot_user)),
                 "guilds": [],
                 "session_id": "dpt-session",
                 "resume_gateway_url": "wss://dpt.invalid",
@@ -94,7 +89,7 @@ class Env:
 
     async def shutdown(self) -> None:
         if self._adapter_token is not None:
-            async_context.reset(self._adapter_token)
+            _dpy_internals.reset_webhook_adapter(self._adapter_token)
         if self._loop is not None and self._orig_create_task is not None:
             self._loop.create_task = self._orig_create_task  # type: ignore[method-assign]
         current = asyncio.current_task()
@@ -108,8 +103,8 @@ class Env:
 
         Waits for all tracked tasks to complete. Tasks that make no progress
         within ``idle`` seconds (e.g. a handler blocked in ``wait_for`` for a
-        future user action) are left running; tasks still pending after
-        ``timeout`` raise.
+        future user action) are left running; if nothing completes by
+        ``timeout`` a ``TimeoutError`` with the pending tasks is raised.
         """
         assert self._loop is not None
         deadline = self._loop.time() + timeout
@@ -167,6 +162,33 @@ class Env:
         if not self._guilds:
             raise SetupError("No guild created yet; call env.create_guild() first")
         return self._guilds[0]
+
+    # ----------------------------------------------------------- diagnostics
+
+    @property
+    def http_log(self) -> list[tuple[str, str, Optional[dict[str, Any]]]]:
+        """Every REST call the bot made: (method, path, json body)."""
+        return self.backend.http_log
+
+    def inject_error(
+        self,
+        method: str,
+        path: str,
+        *,
+        status: int = 500,
+        code: int = 0,
+        message: str = "Internal Server Error (injected by test)",
+        times: Optional[int] = 1,
+    ) -> None:
+        """Make matching REST calls fail, to test the bot's error handling.
+
+        ``path`` is an fnmatch pattern against the API path, e.g.
+        ``"/channels/*/messages"``; ``method`` may be ``"*"``. ``times=None``
+        keeps the fault active for the rest of the test.
+        """
+        self.backend.faults.append(
+            {"method": method, "path": path, "status": status, "code": code, "message": message, "times": times}
+        )
 
 
 class run:
