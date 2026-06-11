@@ -4,13 +4,15 @@ Thanks for helping make Discord bot testing better!
 
 ## Development setup
 
+The project uses [uv](https://docs.astral.sh/uv/):
+
 ```bash
 git clone https://github.com/SilentHacks/discord-py-test
 cd discord-py-test
-python -m venv .venv
-.venv/bin/pip install -e .[dev]
-.venv/bin/pytest tests examples
-.venv/bin/ruff check src tests examples && .venv/bin/ruff format --check src tests examples
+uv sync --extra dev
+uv run pytest tests examples
+uv run ruff check src tests examples && uv run ruff format --check src tests examples
+uv run pyright src
 ```
 
 ## Project layout
@@ -32,8 +34,10 @@ python -m venv .venv
   [Discord API docs](https://discord.com/developers/docs) and discord.py's
   `discord.types` definitions.
 - **Never fake success silently.** Unimplemented routes must raise `RouteNotImplemented`.
-- Every new route or feature needs an integration test driving a real `commands.Bot`
-  through it, and a row in `docs/parity-matrix.md`.
+- Every new route or feature needs an integration test in `tests/integration/` driving
+  the sample bot (`tests/fixtures/sample_bot/`) through it, and a row in
+  `docs/parity-matrix.md`. Pure backend logic (permissions, routing) gets unit tests
+  in `tests/unit/`.
 - Public API lives on `Env` and the handle objects — no module-global state.
 - Add a towncrier news fragment in `changes/` for user-visible changes
   (e.g. `changes/42.feature.md`).

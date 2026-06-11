@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import copy
 import logging
+from collections.abc import Mapping
 from typing import Any
 
 _log = logging.getLogger(__name__)
@@ -19,7 +20,7 @@ class FakeGateway:
     def __init__(self, connection_state: Any) -> None:
         self._state = connection_state
 
-    def feed(self, event: str, payload: dict[str, Any]) -> None:
+    def feed(self, event: str, payload: Mapping[str, Any]) -> None:
         try:
             parser = self._state.parsers[event]
         except KeyError:

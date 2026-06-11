@@ -30,6 +30,7 @@ dev = [
     "coverage[toml]>=7",
     "hypothesis>=6",
     "ruff>=0.8",
+    "pyright>=1.1",
     "towncrier>=24",
 ]
 docs = ["mkdocs-material>=9", "mkdocstrings[python]>=0.26"]
@@ -73,6 +74,8 @@ ignore = [
 
 [tool.pyright]
 include = ["src"]
+venvPath = "."
+venv = ".venv"
 pythonVersion = "3.10"
 typeCheckingMode = "basic"
 reportPrivateUsage = false

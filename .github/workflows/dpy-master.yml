@@ -12,10 +12,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v5
       - run: |
-          pip install -e .[pytest]
-          pip install -U "discord.py @ git+https://github.com/Rapptz/discord.py"
-      - run: pytest tests examples -q
+          uv sync --extra dev
+          uv pip install -U "discord.py @ git+https://github.com/Rapptz/discord.py"
+      - run: uv run pytest tests examples -q

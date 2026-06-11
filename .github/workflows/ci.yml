@@ -10,12 +10,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - run: pip install ruff
-      - run: ruff check src tests examples
-      - run: ruff format --check src tests examples
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --extra dev
+      - run: uv run ruff check src tests examples
+      - run: uv run ruff format --check src tests examples
+      - run: uv run pyright src
 
   test:
     runs-on: ubuntu-latest
@@ -25,19 +24,17 @@ jobs:
         python-version: ["3.10", "3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: astral-sh/setup-uv@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - run: pip install -e .[pytest] coverage[toml] hypothesis
-      - run: coverage run -m pytest tests examples -q
-      - run: coverage report
+      - run: uv sync --extra dev
+      - run: uv run coverage run -m pytest tests examples -q
+      - run: uv run coverage report
 
   docs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - run: pip install -e .[docs]
-      - run: mkdocs build --strict
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --extra docs
+      - run: uv run mkdocs build --strict

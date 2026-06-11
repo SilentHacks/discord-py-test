@@ -35,6 +35,10 @@ class ResponseMessage:
         return self._message.id
 
     @property
+    def channel_id(self) -> int:
+        return self._message.channel_id
+
+    @property
     def content(self) -> str:
         return self._message.content
 

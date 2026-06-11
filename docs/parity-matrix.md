@@ -34,4 +34,5 @@ if your bot needs it.
 | Audit logs, auto-mod | 🚧 | Planned |
 | Rate limit simulation | ❌ | Deliberate: tests stay fast; use `inject_error` for 429 paths |
 | View timeout fast-forward (`advance_time`) | ❌ | Under design; use short real timeouts meanwhile |
+| Multiple bots in one Env | ❌ | The backend broadcasts to N clients, but `Env` currently drives one bot |
 | Sharding simulation | ❌ | Single virtual shard |

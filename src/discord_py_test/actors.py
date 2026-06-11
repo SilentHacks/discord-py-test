@@ -350,9 +350,9 @@ class MemberActor:
 
 
 def _channel_id_of(message: MessageLike) -> int:
-    if isinstance(message, discord.Message):
-        return message.channel.id
-    return message._message.channel_id  # ResponseMessage
+    if isinstance(message, ResponseMessage):
+        return message.channel_id
+    return message.channel.id
 
 
 def _find_component(

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import datetime
 import re
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from typing import Any
 
 import discord
@@ -54,7 +54,7 @@ DEFAULT_EVERYONE_PERMISSIONS = discord.Permissions(
 _USER_MENTION = re.compile(r"<@!?(\d+)>")
 _ROLE_MENTION = re.compile(r"<@&(\d+)>")
 
-EventListener = Callable[[str, dict[str, Any]], None]
+EventListener = Callable[[str, Mapping[str, Any]], None]
 
 
 class Backend:
@@ -90,7 +90,7 @@ class Backend:
     def now_iso(self) -> str:
         return datetime.datetime.now(datetime.timezone.utc).isoformat()
 
-    def emit(self, event: str, payload: dict[str, Any]) -> None:
+    def emit(self, event: str, payload: Mapping[str, Any]) -> None:
         for listener in self.subscribers:
             listener(event, payload)
 
