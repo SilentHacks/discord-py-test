@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 import discord
 
@@ -17,8 +17,8 @@ def bot_message(
     ctx: RequestContext,
     channel_id: int,
     *,
-    author_id: Optional[int] = None,
-    interaction: Optional[dict[str, Any]] = None,
+    author_id: int | None = None,
+    interaction: dict[str, Any] | None = None,
 ) -> Message:
     """Create a message from a REST request body, authored by the bot (or a webhook user)."""
     backend = ctx.backend

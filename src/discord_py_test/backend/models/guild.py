@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional
 
 from .member import Member
 from .role import Role
@@ -16,7 +15,7 @@ class Guild:
     members: dict[int, Member] = field(default_factory=dict)
     channel_ids: list[int] = field(default_factory=list)
     thread_ids: list[int] = field(default_factory=list)
-    bans: dict[int, Optional[str]] = field(default_factory=dict)  # user id -> reason
+    bans: dict[int, str | None] = field(default_factory=dict)  # user id -> reason
 
     @property
     def everyone_role(self) -> Role:

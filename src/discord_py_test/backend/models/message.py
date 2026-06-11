@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 
 @dataclass
@@ -17,7 +17,7 @@ class Message:
     author_id: int
     content: str = ""
     timestamp: str = ""
-    edited_timestamp: Optional[str] = None
+    edited_timestamp: str | None = None
     type: int = 0
     flags: int = 0
     pinned: bool = False
@@ -29,10 +29,10 @@ class Message:
     mention_user_ids: list[int] = field(default_factory=list)
     mention_role_ids: list[int] = field(default_factory=list)
     mention_everyone: bool = False
-    reference: Optional[dict[str, Any]] = None
-    interaction_metadata: Optional[dict[str, Any]] = None
+    reference: dict[str, Any] | None = None
+    interaction_metadata: dict[str, Any] | None = None
 
-    def reaction_for(self, emoji: str) -> Optional[Reaction]:
+    def reaction_for(self, emoji: str) -> Reaction | None:
         for reaction in self.reactions:
             if reaction.emoji == emoji:
                 return reaction

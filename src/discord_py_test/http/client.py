@@ -9,14 +9,15 @@ genuine ``discord.HTTPException`` subclasses with authentic Discord codes.
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Optional
+from typing import Any
 
 import discord
 from discord.http import HTTPClient, Route
 
 from ..backend import Backend
 from ..backend.errors import BackendError
-from . import router, routes as _routes  # noqa: F401  (import registers all handlers)
+from . import router
+from . import routes as _routes  # noqa: F401  — importing registers every route handler
 
 _API_PREFIX = "/api/v"
 
@@ -45,8 +46,8 @@ def _path_of(url: str) -> str:
     path = url.split("?", 1)[0]
     idx = path.find(_API_PREFIX)
     if idx != -1:
-        path = path[idx + len(_API_PREFIX):]
-        path = path[path.find("/"):]
+        path = path[idx + len(_API_PREFIX) :]
+        path = path[path.find("/") :]
     return path
 
 
@@ -82,8 +83,8 @@ class FakeHTTPClient(HTTPClient):
         self,
         route: Route,
         *,
-        files: Optional[Any] = None,
-        form: Optional[Any] = None,
+        files: Any | None = None,
+        form: Any | None = None,
         **kwargs: Any,
     ) -> Any:
         json = kwargs.get("json")
@@ -128,10 +129,10 @@ class FakeWebhookAdapter:
         route: Any,
         session: Any,
         *,
-        payload: Optional[dict[str, Any]] = None,
-        multipart: Optional[list[dict[str, Any]]] = None,
-        files: Optional[Any] = None,
-        params: Optional[dict[str, Any]] = None,
+        payload: dict[str, Any] | None = None,
+        multipart: list[dict[str, Any]] | None = None,
+        files: Any | None = None,
+        params: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> Any:
         json: Any = payload

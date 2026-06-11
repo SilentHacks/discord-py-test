@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 import discord
 
@@ -80,16 +80,16 @@ class InteractionResult:
         return self.record["ephemeral"]
 
     @property
-    def modal(self) -> Optional[dict[str, Any]]:
+    def modal(self) -> dict[str, Any] | None:
         """The raw modal payload, if the bot responded with a modal."""
         return self.record["modal"]
 
     @property
-    def autocomplete_choices(self) -> Optional[list[dict[str, Any]]]:
+    def autocomplete_choices(self) -> list[dict[str, Any]] | None:
         return self.record["autocomplete_choices"]
 
     @property
-    def response(self) -> Optional[ResponseMessage]:
+    def response(self) -> ResponseMessage | None:
         if self.record["message_id"] is None:
             return None
         message = self._env.backend.get_message(self.record["channel_id"], self.record["message_id"])

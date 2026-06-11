@@ -55,6 +55,7 @@ def unknown_message() -> BackendError:
 def unknown_role() -> BackendError:
     return BackendError(404, 10011, "Unknown Role")
 
+
 def unknown_user() -> BackendError:
     return BackendError(404, 10013, "Unknown User")
 

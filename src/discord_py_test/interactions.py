@@ -8,7 +8,7 @@ namespaces, and checks all execute.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from .backend import Backend, serializers
 from .backend.errors import SetupError
@@ -32,7 +32,7 @@ def base_payload(
     *,
     type: int,
     channel_id: int,
-    guild_id: Optional[int],
+    guild_id: int | None,
     user_id: int,
     data: dict[str, Any],
 ) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -107,7 +107,9 @@ def build_options(
 
     backend = actor._env.backend
     declared = {
-        o["name"]: o for o in (spec.get("options") or []) if o.get("type") not in (SUBCOMMAND, SUBCOMMAND_GROUP)
+        o["name"]: o
+        for o in (spec.get("options") or [])
+        if o.get("type") not in (SUBCOMMAND, SUBCOMMAND_GROUP)
     }
     built: list[dict[str, Any]] = []
     resolved: dict[str, dict[str, Any]] = {}

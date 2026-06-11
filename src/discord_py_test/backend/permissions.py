@@ -10,7 +10,6 @@ overwrites → member overwrite → timeout masking.
 from __future__ import annotations
 
 import datetime
-from typing import Optional
 
 import discord
 
@@ -29,7 +28,7 @@ def _is_timed_out(guild: Guild, user_id: int) -> bool:
     return until > datetime.datetime.now(datetime.timezone.utc)
 
 
-def compute(guild: Guild, user_id: int, channel: Optional[Channel] = None) -> int:
+def compute(guild: Guild, user_id: int, channel: Channel | None = None) -> int:
     if guild.owner_id == user_id:
         return _ALL
     member = guild.members.get(user_id)

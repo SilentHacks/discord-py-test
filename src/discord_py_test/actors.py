@@ -8,7 +8,8 @@ channels), then delivered as authentic gateway events.
 
 from __future__ import annotations
 
-from typing import Any, Optional, Sequence, Union
+from collections.abc import Sequence
+from typing import Any
 
 import discord
 
@@ -20,7 +21,7 @@ from .results import InteractionResult, ResponseMessage, to_discord_message
 BUTTON = 2
 STRING_SELECT = 3
 
-MessageLike = Union[discord.Message, ResponseMessage]
+MessageLike = discord.Message | ResponseMessage
 
 
 class MemberActor:
@@ -44,7 +45,7 @@ class MemberActor:
         return self.user.mention
 
     @property
-    def member(self) -> Optional[discord.Member]:
+    def member(self) -> discord.Member | None:
         cached = self._env.bot.get_guild(self.guild.id)
         return cached.get_member(self.id) if cached else None
 
@@ -58,7 +59,7 @@ class MemberActor:
         channel: ChannelHandle,
         content: str = "",
         *,
-        reply_to: Optional[MessageLike] = None,
+        reply_to: MessageLike | None = None,
         attachments: Sequence[tuple[str, bytes]] = (),
     ) -> discord.Message:
         backend = self._env.backend
@@ -137,7 +138,7 @@ class MemberActor:
         root = backend.find_command(parts[0], self.guild.id, type=type)
         if root is None:
             root = self._unsynced_fallback(parts[0], type)
-        leaf, nesting = _interactions.walk_to_subcommand(root, parts[1:])
+        _leaf, nesting = _interactions.walk_to_subcommand(root, parts[1:])
         return root, nesting
 
     def _unsynced_fallback(self, name: str, type: int) -> dict[str, Any]:
@@ -183,7 +184,7 @@ class MemberActor:
         return await self._dispatch_interaction(2, channel, data)
 
     async def context_menu(
-        self, channel: ChannelHandle, name: str, target: Union["MemberActor", MessageLike]
+        self, channel: ChannelHandle, name: str, target: MemberActor | MessageLike
     ) -> InteractionResult:
         """Invoke a user or message context-menu command on a target."""
         self._check(channel, "use_application_commands")
@@ -243,8 +244,8 @@ class MemberActor:
         self,
         message: MessageLike,
         *,
-        label: Optional[str] = None,
-        custom_id: Optional[str] = None,
+        label: str | None = None,
+        custom_id: str | None = None,
     ) -> InteractionResult:
         """Click a button on a message, exactly as a user could."""
         stored = self._visible_message(message)
@@ -258,7 +259,7 @@ class MemberActor:
         message: MessageLike,
         values: Sequence[str],
         *,
-        custom_id: Optional[str] = None,
+        custom_id: str | None = None,
     ) -> InteractionResult:
         """Choose values in a string select menu."""
         stored = self._visible_message(message)
@@ -283,7 +284,10 @@ class MemberActor:
                 custom_id = item.get("custom_id")
                 if custom_id in values:
                     components.append(
-                        {"type": 1, "components": [{"type": 4, "custom_id": custom_id, "value": values[custom_id]}]}
+                        {
+                            "type": 1,
+                            "components": [{"type": 4, "custom_id": custom_id, "value": values[custom_id]}],
+                        }
                     )
         channel = ChannelHandle(
             self._env, self.guild, self._env.backend.get_channel(shown.record["channel_id"])
@@ -326,8 +330,8 @@ class MemberActor:
         channel: ChannelHandle,
         data: dict[str, Any],
         *,
-        extra: Optional[dict[str, Any]] = None,
-        source_message_id: Optional[int] = None,
+        extra: dict[str, Any] | None = None,
+        source_message_id: int | None = None,
     ) -> InteractionResult:
         backend = self._env.backend
         record, payload = _interactions.base_payload(
@@ -360,8 +364,8 @@ def _find_component(
     rows: list[dict[str, Any]],
     *,
     types: tuple[int, ...],
-    custom_id: Optional[str],
-    label: Optional[str],
+    custom_id: str | None,
+    label: str | None,
 ) -> dict[str, Any]:
     found = []
     for row in rows or []:

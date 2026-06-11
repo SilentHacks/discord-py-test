@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Optional
+from typing import Any
 
 import discord
 
@@ -35,7 +35,7 @@ class Env:
         self.errors: list[BaseException] = []
         self._guilds: list[GuildHandle] = []
         self._tasks: list[asyncio.Task[Any]] = []
-        self._loop: Optional[asyncio.AbstractEventLoop] = None
+        self._loop: asyncio.AbstractEventLoop | None = None
         self._orig_create_task: Any = None
         self._adapter_token: Any = None
         self._started = False
@@ -166,7 +166,7 @@ class Env:
     # ----------------------------------------------------------- diagnostics
 
     @property
-    def http_log(self) -> list[tuple[str, str, Optional[dict[str, Any]]]]:
+    def http_log(self) -> list[tuple[str, str, dict[str, Any] | None]]:
         """Every REST call the bot made: (method, path, json body)."""
         return self.backend.http_log
 
@@ -178,7 +178,7 @@ class Env:
         status: int = 500,
         code: int = 0,
         message: str = "Internal Server Error (injected by test)",
-        times: Optional[int] = 1,
+        times: int | None = 1,
     ) -> None:
         """Make matching REST calls fail, to test the bot's error handling.
 
@@ -187,7 +187,14 @@ class Env:
         keeps the fault active for the rest of the test.
         """
         self.backend.faults.append(
-            {"method": method, "path": path, "status": status, "code": code, "message": message, "times": times}
+            {
+                "method": method,
+                "path": path,
+                "status": status,
+                "code": code,
+                "message": message,
+                "times": times,
+            }
         )
 
 

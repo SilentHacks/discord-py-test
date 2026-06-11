@@ -10,7 +10,8 @@ from __future__ import annotations
 
 import datetime
 import re
-from typing import Any, Callable, Iterable, Optional
+from collections.abc import Callable, Iterable
+from typing import Any
 
 import discord
 
@@ -66,12 +67,12 @@ class Backend:
         self.webhooks: dict[int, Webhook] = {}
         self.webhook_tokens: dict[str, int] = {}
         self.dm_channels: dict[int, int] = {}  # user id -> channel id
-        self.commands: dict[Optional[int], dict[str, dict[str, Any]]] = {}
+        self.commands: dict[int | None, dict[str, dict[str, Any]]] = {}
         self.interactions: dict[int, dict[str, Any]] = {}
         self.interaction_tokens: dict[str, int] = {}
         self.cdn = CdnStore()
         self.subscribers: list[EventListener] = []
-        self.http_log: list[tuple[str, str, Optional[dict[str, Any]]]] = []
+        self.http_log: list[tuple[str, str, dict[str, Any] | None]] = []
         self.faults: list[dict[str, Any]] = []
         self.application_id: int = self.snowflake()
         self.bot_user: User = self.make_user("TestBot", bot=True)
@@ -106,7 +107,7 @@ class Backend:
 
     # ---------------------------------------------------------------- guilds
 
-    def create_guild(self, name: str, *, owner_id: Optional[int] = None) -> Guild:
+    def create_guild(self, name: str, *, owner_id: int | None = None) -> Guild:
         guild_id = self.snowflake()
         if owner_id is None:
             # A synthetic owner: the bot must never own guilds by default,
@@ -148,7 +149,7 @@ class Backend:
         user_id: int,
         *,
         roles: Iterable[int] = (),
-        nick: Optional[str] = None,
+        nick: str | None = None,
         announce: bool = False,
     ) -> Member:
         guild = self.get_guild(guild_id)
@@ -227,11 +228,11 @@ class Backend:
 
     def create_channel(
         self,
-        guild_id: Optional[int],
-        name: Optional[str],
+        guild_id: int | None,
+        name: str | None,
         *,
         type: int = 0,
-        overwrites: Optional[list[Overwrite]] = None,
+        overwrites: list[Overwrite] | None = None,
         announce: bool = True,
         **fields: Any,
     ) -> Channel:
@@ -294,7 +295,7 @@ class Backend:
         *,
         type: int = 11,
         auto_archive_duration: int = 1440,
-        message_id: Optional[int] = None,
+        message_id: int | None = None,
     ) -> Channel:
         parent = self.get_channel(parent_id)
         guild = self.get_guild(parent.guild_id)  # type: ignore[arg-type]
@@ -326,12 +327,12 @@ class Backend:
         author_id: int,
         content: str = "",
         *,
-        embeds: Optional[list[dict[str, Any]]] = None,
-        components: Optional[list[dict[str, Any]]] = None,
-        attachments: Optional[list[dict[str, Any]]] = None,
+        embeds: list[dict[str, Any]] | None = None,
+        components: list[dict[str, Any]] | None = None,
+        attachments: list[dict[str, Any]] | None = None,
         flags: int = 0,
-        reference: Optional[dict[str, Any]] = None,
-        interaction_metadata: Optional[dict[str, Any]] = None,
+        reference: dict[str, Any] | None = None,
+        interaction_metadata: dict[str, Any] | None = None,
         broadcast: bool = True,
     ) -> Message:
         channel = self.get_channel(channel_id)
@@ -467,7 +468,7 @@ class Backend:
 
     # --------------------------------------------------- application commands
 
-    def register_commands(self, guild_id: Optional[int], payloads: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    def register_commands(self, guild_id: int | None, payloads: list[dict[str, Any]]) -> list[dict[str, Any]]:
         registered = {}
         for payload in payloads:
             cmd = dict(payload)
@@ -485,7 +486,7 @@ class Backend:
         self.commands[guild_id] = {f"{name}\x00{type}": c for (name, type), c in registered.items()}
         return list(registered.values())
 
-    def find_command(self, name: str, guild_id: Optional[int], type: int = 1) -> Optional[dict[str, Any]]:
+    def find_command(self, name: str, guild_id: int | None, type: int = 1) -> dict[str, Any] | None:
         for scope in (guild_id, None):
             cmd = self.commands.get(scope, {}).get(f"{name}\x00{type}")
             if cmd is not None:
@@ -495,7 +496,7 @@ class Backend:
     # ----------------------------------------------------------- interactions
 
     def new_interaction(
-        self, type: int, channel_id: int, user_id: int, guild_id: Optional[int]
+        self, type: int, channel_id: int, user_id: int, guild_id: int | None
     ) -> dict[str, Any]:
         interaction_id = self.snowflake()
         record: dict[str, Any] = {
@@ -526,7 +527,7 @@ class Backend:
 
     # ------------------------------------------------------------ permissions
 
-    def compute_permissions(self, guild_id: int, user_id: int, channel_id: Optional[int] = None) -> int:
+    def compute_permissions(self, guild_id: int, user_id: int, channel_id: int | None = None) -> int:
         guild = self.get_guild(guild_id)
         channel = None
         if channel_id is not None:
@@ -535,7 +536,7 @@ class Backend:
         return permissions.compute(guild, user_id, channel)
 
     def require_permissions(
-        self, guild_id: Optional[int], user_id: int, channel_id: Optional[int], *names: str
+        self, guild_id: int | None, user_id: int, channel_id: int | None, *names: str
     ) -> None:
         if guild_id is None:  # DMs: no guild permissions apply
             return
@@ -551,5 +552,7 @@ class Backend:
         guild = self.get_guild(guild_id)
         if actor_id == guild.owner_id or target_id not in guild.members:
             return
-        if target_id == guild.owner_id or guild.top_role_position(target_id) >= guild.top_role_position(actor_id):
+        if target_id == guild.owner_id or guild.top_role_position(target_id) >= guild.top_role_position(
+            actor_id
+        ):
             raise errors.missing_permissions()

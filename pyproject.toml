@@ -18,15 +18,30 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Topic :: Software Development :: Testing",
     "Topic :: Software Development :: Testing :: Mocking",
+    "Typing :: Typed",
 ]
 dependencies = ["discord.py>=2.7,<3"]
 
 [project.optional-dependencies]
 pytest = ["pytest>=8", "pytest-asyncio>=0.24"]
+dev = [
+    "pytest>=8",
+    "pytest-asyncio>=0.24",
+    "coverage[toml]>=7",
+    "hypothesis>=6",
+    "ruff>=0.8",
+    "towncrier>=24",
+]
+docs = ["mkdocs-material>=9", "mkdocstrings[python]>=0.26"]
+
+[project.entry-points.pytest11]
+discord_py_test = "discord_py_test.pytest_plugin"
 
 [project.urls]
 Homepage = "https://github.com/SilentHacks/discord-py-test"
+Documentation = "https://silenthacks.github.io/discord-py-test/"
 Issues = "https://github.com/SilentHacks/discord-py-test/issues"
+Changelog = "https://github.com/SilentHacks/discord-py-test/blob/main/CHANGELOG.md"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/discord_py_test"]
@@ -34,3 +49,58 @@ packages = ["src/discord_py_test"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["discord_py_test"]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:", "raise AssertionError"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py310"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "ASYNC", "RUF"]
+ignore = [
+    "E501",  # line length is advisory; the formatter handles it
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B008"]  # discord.py decorators encourage call-in-default patterns
+
+[tool.pyright]
+include = ["src"]
+pythonVersion = "3.10"
+typeCheckingMode = "basic"
+reportPrivateUsage = false
+
+[tool.towncrier]
+package = "discord_py_test"
+directory = "changes"
+filename = "CHANGELOG.md"
+underlines = ["", "", ""]
+title_format = "## {version} ({project_date})"
+issue_format = "[#{issue}](https://github.com/SilentHacks/discord-py-test/issues/{issue})"
+
+[[tool.towncrier.type]]
+directory = "feature"
+name = "Features"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "bugfix"
+name = "Bug fixes"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "doc"
+name = "Documentation"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "misc"
+name = "Miscellaneous"
+showcontent = true

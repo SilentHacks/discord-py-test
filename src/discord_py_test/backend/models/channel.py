@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional
 
 # Discord channel types
 GUILD_TEXT = 0
@@ -35,19 +34,19 @@ class ThreadMetadata:
 class Channel:
     id: int
     type: int
-    name: Optional[str] = None
-    guild_id: Optional[int] = None
+    name: str | None = None
+    guild_id: int | None = None
     position: int = 0
     overwrites: list[Overwrite] = field(default_factory=list)
-    topic: Optional[str] = None
-    parent_id: Optional[int] = None
+    topic: str | None = None
+    parent_id: int | None = None
     nsfw: bool = False
     rate_limit_per_user: int = 0
-    last_message_id: Optional[int] = None
+    last_message_id: int | None = None
     recipient_ids: list[int] = field(default_factory=list)  # DM channels
     # Thread-only fields
-    owner_id: Optional[int] = None
-    thread_metadata: Optional[ThreadMetadata] = None
+    owner_id: int | None = None
+    thread_metadata: ThreadMetadata | None = None
     message_count: int = 0
 
     @property

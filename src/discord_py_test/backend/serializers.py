@@ -9,7 +9,7 @@ omits keys per context), hence the casts.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Optional, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from .models import Channel, Guild, Member, Message, Role, User, Webhook
 
@@ -18,11 +18,23 @@ if TYPE_CHECKING:
     # itself only imports them under TYPE_CHECKING), so we do the same.
     from discord.types import (
         channel as channel_types,
+    )
+    from discord.types import (
         guild as guild_types,
+    )
+    from discord.types import (
         member as member_types,
+    )
+    from discord.types import (
         message as message_types,
+    )
+    from discord.types import (
         role as role_types,
+    )
+    from discord.types import (
         threads as thread_types,
+    )
+    from discord.types import (
         user as user_types,
     )
 
@@ -68,7 +80,9 @@ def role_payload(role: Role) -> role_types.Role:
     )
 
 
-def member_payload(backend: Backend, guild: Guild, member: Member, *, with_user: bool = True) -> member_types.MemberWithUser:
+def member_payload(
+    backend: Backend, guild: Guild, member: Member, *, with_user: bool = True
+) -> member_types.MemberWithUser:
     payload: dict[str, Any] = {
         "roles": [str(r) for r in member.role_ids],
         "nick": member.nick,
@@ -133,7 +147,7 @@ def thread_payload(backend: Backend, thread: Channel) -> thread_types.Thread:
             "last_message_id": str(thread.last_message_id) if thread.last_message_id else None,
             "rate_limit_per_user": thread.rate_limit_per_user,
             "message_count": thread.message_count,
-            "member_count": thread.message_count and 1 or 0,
+            "member_count": (thread.message_count and 1) or 0,
             "total_message_sent": thread.message_count,
             "flags": 0,
             "thread_metadata": {
@@ -158,7 +172,7 @@ def message_payload(
     backend: Backend,
     message: Message,
     *,
-    for_user: Optional[int] = None,
+    for_user: int | None = None,
 ) -> message_types.Message:
     channel = backend.channels[message.channel_id]
     payload: dict[str, Any] = {
@@ -170,7 +184,9 @@ def message_payload(
         "edited_timestamp": message.edited_timestamp,
         "tts": message.tts,
         "mention_everyone": message.mention_everyone,
-        "mentions": [user_payload(backend.users[uid]) for uid in message.mention_user_ids if uid in backend.users],
+        "mentions": [
+            user_payload(backend.users[uid]) for uid in message.mention_user_ids if uid in backend.users
+        ],
         "mention_roles": [str(r) for r in message.mention_role_ids],
         "attachments": list(message.attachments),
         "embeds": list(message.embeds),

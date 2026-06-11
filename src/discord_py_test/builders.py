@@ -8,7 +8,8 @@ doubles as a continuous check that gateway dispatch populated the cache.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Optional, Sequence, Union
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Any
 
 import discord
 
@@ -100,7 +101,7 @@ class GuildHandle:
         return UserHandle(self._env, self._env.backend.get_user(self._guild.owner_id))
 
     @property
-    def me(self) -> Optional[discord.Member]:
+    def me(self) -> discord.Member | None:
         cached = self._env.bot.get_guild(self.id)
         return cached.me if cached else None
 
@@ -120,8 +121,8 @@ class GuildHandle:
         self,
         name: str,
         *,
-        overwrites: Optional[dict[Union[RoleHandle, "MemberActor"], discord.PermissionOverwrite]] = None,
-        topic: Optional[str] = None,
+        overwrites: dict[RoleHandle | MemberActor, discord.PermissionOverwrite] | None = None,
+        topic: str | None = None,
     ) -> ChannelHandle:
         model_overwrites = []
         for target, overwrite in (overwrites or {}).items():
@@ -138,7 +139,7 @@ class GuildHandle:
         return ChannelHandle(self._env, self, channel)
 
     def create_role(
-        self, name: str, *, permissions: Optional[discord.Permissions] = None, **fields: Any
+        self, name: str, *, permissions: discord.Permissions | None = None, **fields: Any
     ) -> RoleHandle:
         role = self._env.backend.create_role(
             self.id, name, permissions=permissions.value if permissions else 0, **fields
@@ -150,18 +151,18 @@ class GuildHandle:
         user: UserHandle,
         *,
         roles: Sequence[RoleHandle] = (),
-        nick: Optional[str] = None,
+        nick: str | None = None,
     ) -> MemberActor:
         from .actors import MemberActor
 
         self._env.backend.add_member(self.id, user.id, roles=[r.id for r in roles], nick=nick, announce=True)
         return MemberActor(self._env, self, user)
 
-    def remove_member(self, member: Union["MemberActor", UserHandle]) -> None:
+    def remove_member(self, member: MemberActor | UserHandle) -> None:
         """The member leaves the guild (dispatches the leave event)."""
         self._env.backend.remove_member(self.id, member.id)
 
-    def get_ban(self, user: Union[UserHandle, "MemberActor"]) -> Optional[dict[str, Any]]:
+    def get_ban(self, user: UserHandle | MemberActor) -> dict[str, Any] | None:
         if user.id not in self._guild.bans:
             return None
         return {"user": user, "reason": self._guild.bans[user.id]}
@@ -174,7 +175,7 @@ class GuildHandle:
 
 
 class ChannelHandle:
-    def __init__(self, env: Env, guild: Optional[GuildHandle], channel: Channel) -> None:
+    def __init__(self, env: Env, guild: GuildHandle | None, channel: Channel) -> None:
         self._env = env
         self._channel = channel
         self.guild = guild
@@ -184,7 +185,7 @@ class ChannelHandle:
         return self._channel.id
 
     @property
-    def name(self) -> Optional[str]:
+    def name(self) -> str | None:
         return self._channel.name
 
     @property
@@ -204,7 +205,7 @@ class ChannelHandle:
             if c.is_thread and c.parent_id == self.id
         ]
 
-    def history(self, *, viewer: Optional[Union["MemberActor", UserHandle]] = None) -> list[discord.Message]:
+    def history(self, *, viewer: MemberActor | UserHandle | None = None) -> list[discord.Message]:
         """All messages, oldest first, as real ``discord.Message`` objects.
 
         With ``viewer=``, ephemeral messages not addressed to that user are
@@ -221,7 +222,7 @@ class ChannelHandle:
         return out
 
     @property
-    def last_message(self) -> Optional[discord.Message]:
+    def last_message(self) -> discord.Message | None:
         history = self.history()
         return history[-1] if history else None
 

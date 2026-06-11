@@ -25,7 +25,12 @@ def edit_channel(ctx: RequestContext) -> Any:
             setattr(channel, key, body[key])
     if "permission_overwrites" in body:
         channel.overwrites = [
-            Overwrite(target_id=int(o["id"]), type=int(o["type"]), allow=int(o.get("allow", 0)), deny=int(o.get("deny", 0)))
+            Overwrite(
+                target_id=int(o["id"]),
+                type=int(o["type"]),
+                allow=int(o.get("allow", 0)),
+                deny=int(o.get("deny", 0)),
+            )
             for o in body["permission_overwrites"]
         ]
     backend.announce_channel_update(channel.id)

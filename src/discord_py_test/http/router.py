@@ -10,8 +10,9 @@ from __future__ import annotations
 
 import fnmatch
 import json as _json
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Optional
+from typing import Any
 
 from ..backend import Backend
 from ..backend.errors import BackendError
@@ -33,7 +34,7 @@ class RouteNotImplemented(BackendError):
 class RequestContext:
     backend: Backend
     args: dict[str, str]
-    json: Optional[Any] = None
+    json: Any | None = None
     params: dict[str, Any] = field(default_factory=dict)
     files: list[Any] = field(default_factory=list)
 
@@ -72,21 +73,21 @@ def dispatch(
     method: str,
     path: str,
     *,
-    json: Optional[Any] = None,
-    params: Optional[dict[str, Any]] = None,
-    files: Optional[list[Any]] = None,
+    json: Any | None = None,
+    params: dict[str, Any] | None = None,
+    files: list[Any] | None = None,
 ) -> Any:
     backend.http_log.append((method, path, json if isinstance(json, dict) else None))
     _check_faults(backend, method, path)
     segments = path.strip("/").split("/")
     # Prefer the most-literal match so e.g. ".../messages/pins" beats ".../messages/{message_id}".
-    best: Optional[tuple[int, dict[str, str], Handler]] = None
+    best: tuple[int, dict[str, str], Handler] | None = None
     for template, handler in _ROUTES.get(method, ()):
         if len(template) != len(segments):
             continue
         args: dict[str, str] = {}
         literals = 0
-        for tpl, seg in zip(template, segments):
+        for tpl, seg in zip(template, segments, strict=True):
             if tpl.startswith("{") and tpl.endswith("}"):
                 args[tpl[1:-1]] = seg
             elif tpl == seg:
@@ -115,7 +116,7 @@ def _check_faults(backend: Backend, method: str, path: str) -> None:
         raise BackendError(fault["status"], fault["code"], fault["message"])
 
 
-def parse_form(form: list[dict[str, Any]], files: list[Any]) -> tuple[Optional[Any], list[Any]]:
+def parse_form(form: list[dict[str, Any]], files: list[Any]) -> tuple[Any | None, list[Any]]:
     """Extract the JSON payload from a multipart form built by discord.py."""
     payload = None
     for part in form:

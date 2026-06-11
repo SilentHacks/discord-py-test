@@ -34,8 +34,7 @@ except ImportError:  # pragma: no cover - plugin is inert without the extra
 @pytest.fixture
 def dpt_bot():
     raise pytest.UsageError(
-        "Define a `dpt_bot` fixture in your conftest.py that returns your bot "
-        "to use the `dpt_env` fixture."
+        "Define a `dpt_bot` fixture in your conftest.py that returns your bot to use the `dpt_env` fixture."
     )
 
 
