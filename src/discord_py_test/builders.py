@@ -13,9 +13,8 @@ from typing import TYPE_CHECKING, Any
 
 import discord
 
-from .backend.errors import SetupError
-from .backend.models import Channel, Guild, Overwrite, Role, User
-from .results import EPHEMERAL, to_discord_message
+from .backend.models import EPHEMERAL_FLAG, Channel, Guild, Overwrite, Role, User
+from .results import to_discord_message
 
 if TYPE_CHECKING:
     from .actors import MemberActor
@@ -213,7 +212,7 @@ class ChannelHandle:
         """
         out = []
         for message in sorted(self._env.backend.messages.get(self.id, {}).values(), key=lambda m: m.id):
-            if message.flags & EPHEMERAL:
+            if message.flags & EPHEMERAL_FLAG:
                 meta = message.interaction_metadata or {}
                 viewer_id = str(viewer.id) if viewer is not None else None
                 if viewer_id != str((meta.get("user") or {}).get("id")):
@@ -231,8 +230,3 @@ class ChannelHandle:
 
     def __repr__(self) -> str:
         return f"<ChannelHandle id={self.id} name={self.name!r}>"
-
-
-def require_member(env: Env, guild_id: int, user_id: int, action: str) -> None:
-    if user_id not in env.backend.get_guild(guild_id).members:
-        raise SetupError(f"Cannot {action}: user {user_id} is not a member of guild {guild_id}")

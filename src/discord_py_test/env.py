@@ -8,7 +8,7 @@ from typing import Any
 import discord
 
 from . import _dpy_internals
-from .backend import Backend
+from .backend import Backend, serializers
 from .backend.errors import SetupError
 from .builders import GuildHandle, UserHandle
 from .gateway import FakeGateway
@@ -71,8 +71,6 @@ class Env:
         # Runs the real login flow: identity, application info, setup_hook
         # (where bots typically load extensions and sync their command tree).
         await self.bot.login("dpt.fake.token")
-        from .backend import serializers
-
         gateway.feed(
             "READY",
             {

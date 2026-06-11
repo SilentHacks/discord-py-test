@@ -7,12 +7,10 @@ from typing import TYPE_CHECKING, Any
 import discord
 
 from .backend import serializers
-from .backend.models import Message
+from .backend.models import EPHEMERAL_FLAG, Message
 
 if TYPE_CHECKING:
     from .env import Env
-
-EPHEMERAL = discord.MessageFlags(ephemeral=True).value
 
 
 def to_discord_message(env: Env, message: Message) -> discord.Message:
@@ -50,7 +48,7 @@ class ResponseMessage:
 
     @property
     def ephemeral(self) -> bool:
-        return bool(self._message.flags & EPHEMERAL)
+        return bool(self._message.flags & EPHEMERAL_FLAG)
 
     @property
     def message(self) -> discord.Message:

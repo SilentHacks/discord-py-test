@@ -161,7 +161,7 @@ def thread_payload(backend: Backend, thread: Channel) -> thread_types.Thread:
     )
 
 
-def _emoji_payload(emoji: str) -> dict[str, Any]:
+def emoji_payload(emoji: str) -> dict[str, Any]:
     if ":" in emoji:
         name, _, emoji_id = emoji.partition(":")
         return {"id": emoji_id, "name": name}
@@ -197,7 +197,7 @@ def message_payload(
         "nonce": None,
         "reactions": [
             {
-                "emoji": _emoji_payload(r.emoji),
+                "emoji": emoji_payload(r.emoji),
                 "count": len(r.user_ids),
                 "me": for_user in r.user_ids if for_user is not None else False,
                 "count_details": {"normal": len(r.user_ids), "burst": 0},

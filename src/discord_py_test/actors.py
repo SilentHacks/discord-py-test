@@ -14,7 +14,9 @@ from typing import Any
 import discord
 
 from . import interactions as _interactions
+from .backend import serializers
 from .backend.errors import SetupError
+from .backend.models import EPHEMERAL_FLAG
 from .builders import ChannelHandle, GuildHandle, UserHandle
 from .results import InteractionResult, ResponseMessage, to_discord_message
 
@@ -101,8 +103,6 @@ class MemberActor:
     async def typing(self, channel: ChannelHandle) -> None:
         self._check(channel, "send_messages")
         backend = self._env.backend
-        from .backend import serializers
-
         guild = backend.get_guild(self.guild.id)
         payload = {
             "channel_id": str(channel.id),
@@ -132,14 +132,15 @@ class MemberActor:
 
     # ---------------------------------------------------------- app commands
 
-    def _resolve_command(self, name: str, type: int = 1) -> tuple[dict[str, Any], list[str]]:
+    def _resolve_command(self, name: str, type: int = 1) -> tuple[dict[str, Any], dict[str, Any], list[str]]:
+        """Resolve "root [group] [sub]" to (root command, leaf spec, nesting path)."""
         backend = self._env.backend
         parts = name.split()
         root = backend.find_command(parts[0], self.guild.id, type=type)
         if root is None:
             root = self._unsynced_fallback(parts[0], type)
-        _leaf, nesting = _interactions.walk_to_subcommand(root, parts[1:])
-        return root, nesting
+        leaf, nesting = _interactions.walk_to_subcommand(root, parts[1:])
+        return root, leaf, nesting
 
     def _unsynced_fallback(self, name: str, type: int) -> dict[str, Any]:
         tree = getattr(self._env.bot, "tree", None)
@@ -168,8 +169,7 @@ class MemberActor:
     async def slash(self, channel: ChannelHandle, name: str, /, **options: Any) -> InteractionResult:
         """Invoke a synced slash command (use spaces for subcommands: "config set")."""
         self._check(channel, "use_application_commands")
-        root, nesting = self._resolve_command(name)
-        leaf, _ = _interactions.walk_to_subcommand(root, nesting)
+        root, leaf, nesting = self._resolve_command(name)
         leaf_options, resolved = _interactions.build_options(self, name, leaf, options)
         data: dict[str, Any] = {
             "id": root["id"],
@@ -189,8 +189,6 @@ class MemberActor:
         """Invoke a user or message context-menu command on a target."""
         self._check(channel, "use_application_commands")
         backend = self._env.backend
-        from .backend import serializers
-
         if isinstance(target, MemberActor):
             command_type = 2
             guild = backend.get_guild(self.guild.id)
@@ -206,7 +204,7 @@ class MemberActor:
             command_type = 3
             stored = backend.get_message(_channel_id_of(target), target.id)
             resolved = {"messages": {str(target.id): dict(serializers.message_payload(backend, stored))}}
-        root, _ = self._resolve_command(name, type=command_type)
+        root, _leaf, _nesting = self._resolve_command(name, type=command_type)
         data = {
             "id": root["id"],
             "name": root["name"],
@@ -220,8 +218,7 @@ class MemberActor:
         self, channel: ChannelHandle, name: str, option: str, value: str, /, **filled: Any
     ) -> list[dict[str, Any]]:
         """Type into an autocomplete option; returns the choices the bot offered."""
-        root, nesting = self._resolve_command(name)
-        leaf, _ = _interactions.walk_to_subcommand(root, nesting)
+        root, leaf, nesting = self._resolve_command(name)
         leaf_options, _resolved = _interactions.build_options(self, name, leaf, filled, partial=True)
         declared = {o["name"]: o for o in (leaf.get("options") or [])}
         if option not in declared:
@@ -301,7 +298,7 @@ class MemberActor:
     def _visible_message(self, message: MessageLike) -> Any:
         backend = self._env.backend
         stored = backend.get_message(_channel_id_of(message), message.id)
-        if stored.flags & discord.MessageFlags(ephemeral=True).value:
+        if stored.flags & EPHEMERAL_FLAG:
             meta = stored.interaction_metadata or {}
             if str((meta.get("user") or {}).get("id")) != str(self.id):
                 raise SetupError(
@@ -312,8 +309,6 @@ class MemberActor:
 
     async def _component_interaction(self, stored: Any, data: dict[str, Any]) -> InteractionResult:
         backend = self._env.backend
-        from .backend import serializers
-
         channel = ChannelHandle(self._env, self.guild, backend.get_channel(stored.channel_id))
         result = await self._dispatch_interaction(
             3,

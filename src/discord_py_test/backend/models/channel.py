@@ -2,14 +2,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-# Discord channel types
-GUILD_TEXT = 0
-DM = 1
-GUILD_VOICE = 2
-GUILD_CATEGORY = 4
+# Discord channel types referenced by the backend
 PUBLIC_THREAD = 11
 PRIVATE_THREAD = 12
-
 THREAD_TYPES = (PUBLIC_THREAD, PRIVATE_THREAD)
 
 

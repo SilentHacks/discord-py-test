@@ -14,7 +14,7 @@ from typing import Any
 import discord
 from discord.http import HTTPClient, Route
 
-from ..backend import Backend
+from ..backend import Backend, serializers
 from ..backend.errors import BackendError
 from . import router
 from . import routes as _routes  # noqa: F401  — importing registers every route handler
@@ -62,8 +62,6 @@ class FakeHTTPClient(HTTPClient):
 
     async def static_login(self, token: str) -> Any:
         self.token = token
-        from ..backend import serializers
-
         return dict(serializers.user_payload(self.backend.bot_user))
 
     async def close(self) -> None:

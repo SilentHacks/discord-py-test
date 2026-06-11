@@ -4,13 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
-import discord
-
-from ..backend import serializers
-from ..backend.models import Message
+from ..backend import errors, serializers
+from ..backend.models import EPHEMERAL_FLAG, Message
 from .router import RequestContext
-
-EPHEMERAL = discord.MessageFlags(ephemeral=True).value
 
 
 def bot_message(
@@ -50,13 +46,11 @@ def bot_message(
         flags=flags,
         reference=reference,
         interaction_metadata=interaction_metadata,
-        broadcast=not flags & EPHEMERAL,
+        broadcast=not flags & EPHEMERAL_FLAG,
     )
 
 
 def _validate_embeds(embeds: list[dict[str, Any]]) -> None:
-    from ..backend import errors
-
     if len(embeds) > 10:
         raise errors.invalid_form_body("embeds: Must be 10 or fewer in length")
     for embed in embeds:

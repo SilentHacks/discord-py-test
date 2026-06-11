@@ -3,6 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+#: discord.MessageFlags.ephemeral — only the interaction's invoker sees the message.
+EPHEMERAL_FLAG = 1 << 6
+
 
 @dataclass
 class Reaction:

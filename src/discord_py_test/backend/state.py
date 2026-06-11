@@ -67,7 +67,9 @@ class Backend:
         self.webhooks: dict[int, Webhook] = {}
         self.webhook_tokens: dict[str, int] = {}
         self.dm_channels: dict[int, int] = {}  # user id -> channel id
-        self.commands: dict[int | None, dict[str, dict[str, Any]]] = {}
+        self.commands: dict[
+            int | None, dict[tuple[str, int], dict[str, Any]]
+        ] = {}  # scope -> (name, type) -> command
         self.interactions: dict[int, dict[str, Any]] = {}
         self.interaction_tokens: dict[str, int] = {}
         self.cdn = CdnStore()
@@ -436,7 +438,7 @@ class Backend:
             "user_id": str(user_id),
             "channel_id": str(message.channel_id),
             "message_id": str(message.id),
-            "emoji": serializers._emoji_payload(emoji),
+            "emoji": serializers.emoji_payload(emoji),
             "burst": False,
             "type": 0,
         }
@@ -483,12 +485,12 @@ class Backend:
             if guild_id is not None:
                 cmd["guild_id"] = str(guild_id)
             registered[(cmd["name"], cmd["type"])] = cmd
-        self.commands[guild_id] = {f"{name}\x00{type}": c for (name, type), c in registered.items()}
+        self.commands[guild_id] = registered
         return list(registered.values())
 
     def find_command(self, name: str, guild_id: int | None, type: int = 1) -> dict[str, Any] | None:
         for scope in (guild_id, None):
-            cmd = self.commands.get(scope, {}).get(f"{name}\x00{type}")
+            cmd = self.commands.get(scope, {}).get((name, type))
             if cmd is not None:
                 return cmd
         return None

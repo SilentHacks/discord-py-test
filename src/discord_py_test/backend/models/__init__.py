@@ -8,12 +8,13 @@ wire-format payloads produced by :mod:`discord_py_test.backend.serializers`.
 from .channel import Channel, Overwrite, ThreadMetadata
 from .guild import Guild
 from .member import Member
-from .message import Message, Reaction
+from .message import EPHEMERAL_FLAG, Message, Reaction
 from .role import Role
 from .user import User
 from .webhook import Webhook
 
 __all__ = (
+    "EPHEMERAL_FLAG",
     "Channel",
     "Guild",
     "Member",

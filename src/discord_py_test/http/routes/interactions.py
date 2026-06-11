@@ -9,7 +9,8 @@ from __future__ import annotations
 from typing import Any
 
 from ...backend import errors
-from .._helpers import EPHEMERAL, bot_message, message_response
+from ...backend.models import EPHEMERAL_FLAG
+from .._helpers import bot_message, message_response
 from ..router import RequestContext, route
 
 
@@ -27,13 +28,13 @@ def interaction_callback(ctx: RequestContext) -> Any:
 
     if callback_type == 4:  # channel message with source
         ctx.json = data
-        record["ephemeral"] = bool(int(data.get("flags") or 0) & EPHEMERAL)
+        record["ephemeral"] = bool(int(data.get("flags") or 0) & EPHEMERAL_FLAG)
         message = bot_message(ctx, record["channel_id"], interaction=record)
         record["response_kind"] = "message"
         record["message_id"] = message.id
     elif callback_type in (5, 6):  # deferred (with source / update)
         record["response_kind"] = "deferred"
-        record["ephemeral"] = bool(int(data.get("flags") or 0) & EPHEMERAL)
+        record["ephemeral"] = bool(int(data.get("flags") or 0) & EPHEMERAL_FLAG)
     elif callback_type == 7:  # update the component's message
         record["response_kind"] = "update"
         if record["source_message_id"] is not None:
@@ -102,7 +103,7 @@ def edit_original_response(ctx: RequestContext) -> Any:
         # Editing a deferred response materialises the response message.
         body = dict(ctx.body())
         if record["ephemeral"]:
-            body["flags"] = int(body.get("flags") or 0) | EPHEMERAL
+            body["flags"] = int(body.get("flags") or 0) | EPHEMERAL_FLAG
         ctx.json = body
         message = bot_message(ctx, record["channel_id"], interaction=record)
         record["message_id"] = message.id
