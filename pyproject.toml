@@ -1,0 +1,36 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "discord-py-test"
+version = "0.1.0"
+description = "Offline testing framework for discord.py bots: a virtual Discord backend, no network, no ToS worries."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [{ name = "SilentHacks" }]
+keywords = ["discord", "discord.py", "testing", "pytest", "mock"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Framework :: Pytest",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Topic :: Software Development :: Testing",
+    "Topic :: Software Development :: Testing :: Mocking",
+]
+dependencies = ["discord.py>=2.7,<3"]
+
+[project.optional-dependencies]
+pytest = ["pytest>=8", "pytest-asyncio>=0.24"]
+
+[project.urls]
+Homepage = "https://github.com/SilentHacks/discord-py-test"
+Issues = "https://github.com/SilentHacks/discord-py-test/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/discord_py_test"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
