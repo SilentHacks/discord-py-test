@@ -70,3 +70,13 @@ async def test_attachments(env, channel, alice):
     cached = await env.bot.get_channel(channel.id).fetch_message(message.id)
     assert cached.attachments[0].filename == "notes.txt"
     assert await cached.attachments[0].read() == b"hello world"
+
+
+async def test_webhook_create_and_execute(env, channel):
+    cached = env.bot.get_channel(channel.id)
+    webhook = await cached.create_webhook(name="Announcer")
+    await webhook.send("Webhook says hi", wait=True)
+
+    last = channel.last_message
+    assert last.content == "Webhook says hi"
+    assert last.author.id != env.bot.user.id  # authored by the webhook's synthetic user

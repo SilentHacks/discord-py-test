@@ -87,3 +87,30 @@ async def test_double_acknowledge_raises_real_error(env, channel, alice):
     result = await alice.slash(channel, "buggy")
     assert result.response.content == "one"
     assert env.errors and isinstance(env.errors[-1].__cause__ or env.errors[-1], Exception)
+
+
+async def test_strict_sync_opt_out():
+    bot = commands.Bot(command_prefix="!", intents=discord.Intents.default())
+
+    @bot.tree.command(description="never synced")
+    async def ghost(interaction: discord.Interaction) -> None:
+        await interaction.response.send_message("boo")
+
+    async with dpt.run(bot, strict_sync=False) as env:
+        guild = env.create_guild()
+        channel = guild.create_text_channel("general")
+        alice = guild.add_member(env.create_user("alice"))
+        result = await alice.slash(channel, "ghost")
+        assert result.response.content == "boo"
+
+
+async def test_editing_deferred_response_materialises_message(env, channel, alice):
+    @env.bot.tree.command(description="defers then edits")
+    async def patient(interaction: discord.Interaction) -> None:
+        await interaction.response.defer(ephemeral=True)
+        await interaction.edit_original_response(content="All done")
+
+    await env.bot.tree.sync()
+    result = await alice.slash(channel, "patient")
+    assert result.response.content == "All done"
+    assert result.ephemeral

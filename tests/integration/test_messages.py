@@ -56,3 +56,39 @@ async def test_content_limit_enforced(env, channel):
     with pytest.raises(discord.HTTPException) as exc_info:
         await ch.send("x" * 2001)
     assert exc_info.value.code == 50035
+
+
+async def test_user_edits_and_deletes_own_message(env, channel, alice):
+    baseline = len(channel.history())  # alice's join may have triggered a welcome message
+    message = await alice.send(channel, "first try")
+    await alice.edit(message, "second try")
+    assert channel.last_message.content == "second try"
+
+    await alice.delete(message)
+    assert len(channel.history()) == baseline
+
+
+async def test_user_cannot_edit_others_messages(env, channel, alice):
+    bob = env.guild.add_member(env.create_user("bob"))
+    message = await bob.send(channel, "bob's message")
+    with pytest.raises(dpt.SetupError, match="own messages"):
+        await alice.edit(message, "hijacked")
+
+
+async def test_typing_event_reaches_bot(env, channel, alice):
+    seen = []
+
+    @env.bot.listen()
+    async def on_typing(ch, user, when):
+        seen.append((ch.id, user.id))
+
+    await alice.typing(channel)
+    assert seen == [(channel.id, alice.id)]
+
+
+async def test_unreact(env, channel, alice):
+    message = await alice.send(channel, "hello")
+    await alice.react(message, "🔥")
+    await alice.unreact(message, "🔥")
+    refetched = await env.bot.get_channel(channel.id).fetch_message(message.id)
+    assert refetched.reactions == []
