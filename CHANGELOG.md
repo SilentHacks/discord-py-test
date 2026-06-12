@@ -8,7 +8,11 @@ This changelog is generated with [towncrier](https://towncrier.readthedocs.io/).
 
 ### Features
 
-- Gateway intents are now simulated server-side, matching real Discord: events outside the bot's declared intents are dropped (and recorded in the transcript), message content is censored without the `message_content` intent (with Discord's documented DM/author/mention exemptions), `GUILD_CREATE` inlines only the bot's member with the rest delivered via authentic `GUILD_MEMBERS_CHUNK` responses (`Guild.chunk()` and `Guild.query_members()` now work), and `dpt.run(bot, approved_intents=...)` can simulate unapproved privileged intents raising `discord.PrivilegedIntentsRequired`. See the new [Intents guide](https://simcord.readthedocs.io/en/latest/guides/intents/).
+- Gateway events outside the bot's declared intents are dropped, matching real Discord. Dropped events are recorded in the transcript so a mysteriously-quiet test can explain itself.
+- Message content is censored without the `message_content` intent: `content`, `embeds`, `attachments`, `components` and `poll` are blanked on guild messages, with Discord's documented exemptions (DMs, bot-authored messages, messages mentioning the bot). Recorded as `CENSORED` in the transcript.
+- `GUILD_CREATE` now inlines only the bot's own member. The rest arrive via authentic `GUILD_MEMBERS_CHUNK` responses, so `Guild.chunk()` and `Guild.query_members()` work as they would in production.
+- `dpt.run(bot, approved_intents=...)` can simulate unapproved privileged intents raising `discord.PrivilegedIntentsRequired`, mirroring the Discord developer portal behaviour at connect time.
+- New [Intents guide](https://simcord.readthedocs.io/en/latest/guides/intents/) covering event delivery, message content censoring, member chunking, and privileged intents.
 
 
 ## 0.1.0 (2026-06-12)
