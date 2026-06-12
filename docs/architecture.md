@@ -13,12 +13,12 @@ is real discord.py code running unmodified.
 
 ```
 test ──► builders/actors ──► virtual backend (single source of truth)
-                                 │                       │
+                                   │                     │
                   gateway payloads ▼                     ▼ REST responses
                   ConnectionState.parsers        FakeHTTPClient route table
-                                 │                       ▲
-                                 ▼                       │
-                        the user's real, unmodified bot
+                                   │                     ▲
+                                   ▼                     │
+                                  your real, unmodified bot
 ```
 
 ## Key design decisions
