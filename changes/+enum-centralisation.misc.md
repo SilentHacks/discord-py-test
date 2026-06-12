@@ -1,1 +1,0 @@
-Centralised the Discord wire-protocol magic numbers (interaction, callback, option and component types) into `IntEnum`s in `discord_py_test.enums`, replacing scattered bare integer constants in the actors, payload builders and interaction route.
