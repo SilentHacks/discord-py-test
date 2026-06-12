@@ -101,6 +101,7 @@ class FakeWebSocket:
     def __init__(self, backend: Backend, gateway: FakeGateway) -> None:
         self._backend = backend
         self._gateway = gateway
+        self._chunk_task: asyncio.Task[None] | None = None
 
     @property
     def latency(self) -> float:
@@ -186,7 +187,7 @@ class FakeWebSocket:
         # wait_for schedules the inner task one tick later than 3.12+). Yielding
         # one loop iteration before delivering guarantees the waiter is in place
         # regardless of interpreter version.
-        asyncio.ensure_future(self._deliver_chunks(payloads))
+        self._chunk_task = asyncio.ensure_future(self._deliver_chunks(payloads))
 
     async def _deliver_chunks(self, payloads: list[dict[str, Any]]) -> None:
         # Let the caller's ChunkRequest waiter register before we answer.
