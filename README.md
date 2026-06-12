@@ -15,7 +15,7 @@ for discord.py bots.
 [![discord.py](https://img.shields.io/badge/discord.py-2.7%2B-5865F2)](https://github.com/Rapptz/discord.py)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-[Quickstart](#quickstart) · [Documentation](https://simcord.readthedocs.io/) · [Parity matrix](https://simcord.readthedocs.io/parity-matrix/) · [Contributing](CONTRIBUTING.md)
+[Quickstart](#quickstart) · [Documentation](https://simcord.readthedocs.io/) · [Parity matrix](https://simcord.readthedocs.io/en/latest/parity-matrix/) · [Contributing](CONTRIBUTING.md)
 
 </div>
 
@@ -37,7 +37,7 @@ async def test_ping(simcord_env):
 
 > ⚠️ **Alpha.** The core surface (messages, prefix commands, slash commands, components,
 > modals, permissions, reactions, threads, DMs, time control) works; see the
-> [parity matrix](https://simcord.readthedocs.io/parity-matrix/) for the
+> [parity matrix](https://simcord.readthedocs.io/en/latest/parity-matrix/) for the
 > long tail. Unimplemented routes always fail loudly — SimCord never silently fakes
 > success.
 
@@ -133,7 +133,7 @@ test ──► builders/actors ──► virtual backend (single source of truth
                                   your real, unmodified bot
 ```
 
-Details in the [architecture docs](https://simcord.readthedocs.io/architecture/).
+Details in the [architecture docs](https://simcord.readthedocs.io/en/latest/architecture/).
 
 ## discord.py testing — common use cases
 
