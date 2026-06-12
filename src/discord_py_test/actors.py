@@ -17,13 +17,11 @@ from . import interactions as _interactions
 from .backend import serializers
 from .backend.errors import SetupError
 from .builders import ChannelHandle, GuildHandle, UserHandle
+from .enums import ComponentType, InteractionType
 from .results import InteractionResult, ResponseMessage, to_discord_message
 
 if TYPE_CHECKING:
     from .env import Env
-
-BUTTON = 2
-STRING_SELECT = 3
 
 MessageLike = discord.Message | ResponseMessage
 
@@ -183,7 +181,7 @@ class MemberActor:
             data["resolved"] = resolved
         if root.get("guild_id"):
             data["guild_id"] = root["guild_id"]
-        return await self._dispatch_interaction(2, channel, data)
+        return await self._dispatch_interaction(InteractionType.APPLICATION_COMMAND, channel, data)
 
     async def context_menu(
         self, channel: ChannelHandle, name: str, target: MemberActor | MessageLike
@@ -214,7 +212,7 @@ class MemberActor:
             "target_id": str(target.id),
             "resolved": resolved,
         }
-        return await self._dispatch_interaction(2, channel, data)
+        return await self._dispatch_interaction(InteractionType.APPLICATION_COMMAND, channel, data)
 
     async def autocomplete(
         self, channel: ChannelHandle, name: str, option: str, value: str, /, **filled: Any
@@ -234,7 +232,9 @@ class MemberActor:
             "type": root.get("type", 1),
             "options": _interactions.nest_options(root, nesting, leaf_options),
         }
-        result = await self._dispatch_interaction(4, channel, data)
+        result = await self._dispatch_interaction(
+            InteractionType.APPLICATION_COMMAND_AUTOCOMPLETE, channel, data
+        )
         return result.autocomplete_choices or []
 
     # ------------------------------------------------------------ components
@@ -248,9 +248,11 @@ class MemberActor:
     ) -> InteractionResult:
         """Click a button on a message, exactly as a user could."""
         stored = self._visible_message(message)
-        button = _find_component(stored.components, types=(BUTTON,), custom_id=custom_id, label=label)
+        button = _find_component(
+            stored.components, types=(ComponentType.BUTTON,), custom_id=custom_id, label=label
+        )
         return await self._component_interaction(
-            stored, {"custom_id": button["custom_id"], "component_type": BUTTON}
+            stored, {"custom_id": button["custom_id"], "component_type": ComponentType.BUTTON}
         )
 
     async def select(
@@ -262,14 +264,22 @@ class MemberActor:
     ) -> InteractionResult:
         """Choose values in a string select menu."""
         stored = self._visible_message(message)
-        menu = _find_component(stored.components, types=(STRING_SELECT,), custom_id=custom_id, label=None)
+        menu = _find_component(
+            stored.components, types=(ComponentType.STRING_SELECT,), custom_id=custom_id, label=None
+        )
         valid = {o["value"] for o in menu.get("options") or []}
         for value in values:
             if value not in valid:
-                raise SetupError(f"Select option {value!r} does not exist (options: {sorted(valid)})")
+                error = SetupError(f"Select option {value!r} does not exist")
+                error.add_note(f"Available options: {sorted(valid)}")
+                raise error
         return await self._component_interaction(
             stored,
-            {"custom_id": menu["custom_id"], "component_type": STRING_SELECT, "values": list(values)},
+            {
+                "custom_id": menu["custom_id"],
+                "component_type": ComponentType.STRING_SELECT,
+                "values": list(values),
+            },
         )
 
     async def submit_modal(self, shown: InteractionResult, values: dict[str, str]) -> InteractionResult:
@@ -292,7 +302,7 @@ class MemberActor:
             self._env, self.guild, self._env.backend.get_channel(shown._interaction.channel_id)
         )
         return await self._dispatch_interaction(
-            5, channel, {"custom_id": spec["custom_id"], "components": components}
+            InteractionType.MODAL_SUBMIT, channel, {"custom_id": spec["custom_id"], "components": components}
         )
 
     # -------------------------------------------------------------- plumbing
@@ -311,7 +321,7 @@ class MemberActor:
         backend = self._env.backend
         channel = ChannelHandle(self._env, self.guild, backend.get_channel(stored.channel_id))
         result = await self._dispatch_interaction(
-            3,
+            InteractionType.MESSAGE_COMPONENT,
             channel,
             data,
             extra={"message": dict(serializers.message_payload(backend, stored))},

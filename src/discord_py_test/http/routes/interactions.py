@@ -10,6 +10,7 @@ from typing import Any
 
 from ...backend import errors
 from ...backend.models import EPHEMERAL_FLAG, Interaction
+from ...enums import CallbackType
 from .._helpers import bot_message, message_response
 from ..router import RequestContext, route
 
@@ -30,22 +31,22 @@ def interaction_callback(ctx: RequestContext) -> Any:
     # callback is handled successfully: a callback that 400s (e.g. an oversized
     # embed) does not consume the interaction on real Discord — a retry must not
     # see 40060.
-    if callback_type == 4:  # channel message with source
+    if callback_type == CallbackType.CHANNEL_MESSAGE_WITH_SOURCE:
         message = bot_message(ctx, record.channel_id, interaction=record, body=data)
         record.respond_with_message(message.id, ephemeral=ephemeral)
-    elif callback_type == 5:  # deferred channel message with source
+    elif callback_type == CallbackType.DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE:
         record.defer(ephemeral=ephemeral)
-    elif callback_type == 6:  # deferred update of the component's message
+    elif callback_type == CallbackType.DEFERRED_UPDATE_MESSAGE:
         record.defer_update()
-    elif callback_type == 7:  # update the component's message
+    elif callback_type == CallbackType.UPDATE_MESSAGE:
         if record.source_message_id is not None:
             message = backend.edit_message(record.channel_id, record.source_message_id, data)
         record.update_source(record.source_message_id)
-    elif callback_type == 9:  # modal
+    elif callback_type == CallbackType.MODAL:
         record.show_modal(data)
-    elif callback_type == 8:  # autocomplete result
+    elif callback_type == CallbackType.APPLICATION_COMMAND_AUTOCOMPLETE_RESULT:
         record.complete_autocomplete(data.get("choices", []))
-    elif callback_type == 1:  # pong
+    elif callback_type == CallbackType.PONG:
         record.pong()
     else:
         raise errors.invalid_form_body(f"unknown interaction callback type {callback_type}")

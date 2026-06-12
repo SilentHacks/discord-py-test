@@ -226,6 +226,24 @@ class Env:
         """Every REST call the bot made: (method, path, json body)."""
         return self.backend.http_log
 
+    def raise_errors(self) -> None:
+        """Re-raise everything the bot raised during the test, as a group.
+
+        Exceptions from command handlers, app-command callbacks and event
+        listeners are captured into :attr:`errors` rather than propagating into
+        your test (that is what lets a bot keep running after one handler
+        fails). Call this to assert the bot ran cleanly: it raises an
+        ``ExceptionGroup`` of everything captured — even a single error — and
+        does nothing if there were none.
+        """
+        captured = list(self.errors)
+        if not captured:
+            return
+        message = f"bot raised {len(captured)} error(s) during the test"
+        if all(isinstance(exc, Exception) for exc in captured):
+            raise ExceptionGroup(message, captured)  # type: ignore[arg-type]
+        raise BaseExceptionGroup(message, captured)
+
     def inject_error(
         self,
         method: str,
