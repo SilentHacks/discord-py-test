@@ -31,34 +31,31 @@ def edit_member(ctx: RequestContext) -> Any:
     body = ctx.body()
     bot_id = backend.bot_user.id
 
-    # Validate every change before applying any of them: a partial edit that
-    # 403s halfway would desync backend state from the bot's cache (no
-    # GUILD_MEMBER_UPDATE is emitted on failure).
-    new_roles: list[int] | None = None
+    # Validate every change before applying any of them, then hand the whole set
+    # to the backend so the write and its GUILD_MEMBER_UPDATE stay atomic — a
+    # partial edit that 403s halfway would desync the bot's cache.
+    changes: dict[str, Any] = {}
     if "nick" in body:
         perm = "change_nickname" if user_id == bot_id else "manage_nicknames"
-        backend.require_permissions(guild_id, bot_id, None, perm)
+        ctx.require_guild_permissions(guild_id, perm)
         if user_id != bot_id:
             backend.require_hierarchy(guild_id, bot_id, user_id)
+        changes["nick"] = body["nick"]
     if "roles" in body:
-        backend.require_permissions(guild_id, bot_id, None, "manage_roles")
+        ctx.require_guild_permissions(guild_id, "manage_roles")
         new_roles = [int(r) for r in body["roles"]]
         for role_id in set(new_roles) ^ set(member.role_ids):  # only the added/removed roles
             backend.require_role_assignable(guild_id, bot_id, role_id)
+        changes["role_ids"] = new_roles
     if "communication_disabled_until" in body:
-        backend.require_permissions(guild_id, bot_id, None, "moderate_members")
+        ctx.require_guild_permissions(guild_id, "moderate_members")
         backend.require_hierarchy(guild_id, bot_id, user_id)
-
-    if "nick" in body:
-        member.nick = body["nick"]
-    if new_roles is not None:
-        member.role_ids = new_roles
-    if "communication_disabled_until" in body:
-        member.timed_out_until = body["communication_disabled_until"]
+        changes["timed_out_until"] = body["communication_disabled_until"]
     for key in ("mute", "deaf"):
         if key in body:
-            setattr(member, key, body[key])
-    backend.announce_member_update(guild_id, user_id)
+            changes[key] = body[key]
+
+    member = backend.edit_member(guild_id, user_id, changes)
     return dict(serializers.member_payload(backend, guild, member))
 
 
@@ -66,26 +63,24 @@ def edit_member(ctx: RequestContext) -> Any:
 def add_member_role(ctx: RequestContext) -> Any:
     backend = ctx.backend
     guild_id = ctx.int_arg("guild_id")
-    backend.require_permissions(guild_id, backend.bot_user.id, None, "manage_roles")
-    member = backend.get_member(guild_id, ctx.int_arg("user_id"))
+    user_id = ctx.int_arg("user_id")
+    ctx.require_guild_permissions(guild_id, "manage_roles")
+    backend.get_member(guild_id, user_id)
     role = backend.get_role(guild_id, ctx.int_arg("role_id"))
     backend.require_role_assignable(guild_id, backend.bot_user.id, role.id)
-    if role.id not in member.role_ids:
-        member.role_ids.append(role.id)
-    backend.announce_member_update(guild_id, member.user_id)
+    backend.add_member_role(guild_id, user_id, role.id)
 
 
 @route("DELETE", "/guilds/{guild_id}/members/{user_id}/roles/{role_id}")
 def remove_member_role(ctx: RequestContext) -> Any:
     backend = ctx.backend
     guild_id = ctx.int_arg("guild_id")
-    backend.require_permissions(guild_id, backend.bot_user.id, None, "manage_roles")
-    member = backend.get_member(guild_id, ctx.int_arg("user_id"))
+    user_id = ctx.int_arg("user_id")
     role_id = ctx.int_arg("role_id")
+    ctx.require_guild_permissions(guild_id, "manage_roles")
+    backend.get_member(guild_id, user_id)
     backend.require_role_assignable(guild_id, backend.bot_user.id, role_id)
-    if role_id in member.role_ids:
-        member.role_ids.remove(role_id)
-    backend.announce_member_update(guild_id, member.user_id)
+    backend.remove_member_role(guild_id, user_id, role_id)
 
 
 @route("DELETE", "/guilds/{guild_id}/members/{user_id}")
@@ -93,7 +88,7 @@ def kick(ctx: RequestContext) -> Any:
     backend = ctx.backend
     guild_id = ctx.int_arg("guild_id")
     user_id = ctx.int_arg("user_id")
-    backend.require_permissions(guild_id, backend.bot_user.id, None, "kick_members")
+    ctx.require_guild_permissions(guild_id, "kick_members")
     backend.require_hierarchy(guild_id, backend.bot_user.id, user_id)
     backend.remove_member(guild_id, user_id)
 
@@ -103,7 +98,7 @@ def ban(ctx: RequestContext) -> Any:
     backend = ctx.backend
     guild_id = ctx.int_arg("guild_id")
     user_id = ctx.int_arg("user_id")
-    backend.require_permissions(guild_id, backend.bot_user.id, None, "ban_members")
+    ctx.require_guild_permissions(guild_id, "ban_members")
     backend.require_hierarchy(guild_id, backend.bot_user.id, user_id)
     guild = backend.get_guild(guild_id)
     guild.bans[user_id] = None
@@ -120,7 +115,7 @@ def unban(ctx: RequestContext) -> Any:
     backend = ctx.backend
     guild_id = ctx.int_arg("guild_id")
     user_id = ctx.int_arg("user_id")
-    backend.require_permissions(guild_id, backend.bot_user.id, None, "ban_members")
+    ctx.require_guild_permissions(guild_id, "ban_members")
     guild = backend.get_guild(guild_id)
     if user_id not in guild.bans:
         raise errors.unknown_ban()
@@ -155,7 +150,7 @@ def create_role(ctx: RequestContext) -> Any:
     backend = ctx.backend
     guild_id = ctx.int_arg("guild_id")
     bot_id = backend.bot_user.id
-    backend.require_permissions(guild_id, bot_id, None, "manage_roles")
+    ctx.require_guild_permissions(guild_id, "manage_roles")
     body = ctx.body()
     new_permissions = int(body.get("permissions") or 0)
     backend.require_can_grant(guild_id, bot_id, new_permissions)
@@ -176,8 +171,8 @@ def edit_role(ctx: RequestContext) -> Any:
     guild_id = ctx.int_arg("guild_id")
     role_id = ctx.int_arg("role_id")
     bot_id = backend.bot_user.id
-    backend.require_permissions(guild_id, bot_id, None, "manage_roles")
-    role = backend.get_role(guild_id, role_id)
+    ctx.require_guild_permissions(guild_id, "manage_roles")
+    backend.get_role(guild_id, role_id)
     body = ctx.body()
 
     # Validate before mutating: a role above the bot can't be edited, and the
@@ -186,24 +181,19 @@ def edit_role(ctx: RequestContext) -> Any:
     if "permissions" in body and body["permissions"] is not None:
         backend.require_can_grant(guild_id, bot_id, int(body["permissions"]))
 
-    for key in ("name", "hoist", "mentionable", "color"):
-        if key in body and body[key] is not None:
-            setattr(role, key, body[key])
+    changes: dict[str, Any] = {
+        key: body[key] for key in ("name", "hoist", "mentionable", "color") if body.get(key) is not None
+    }
     if "permissions" in body and body["permissions"] is not None:
-        role.permissions = int(body["permissions"])
-    backend.emit(
-        "GUILD_ROLE_UPDATE",
-        {"guild_id": str(guild_id), "role": serializers.role_payload(role)},
-    )
+        changes["permissions"] = int(body["permissions"])
+    role = backend.edit_role(guild_id, role_id, changes)
     return dict(serializers.role_payload(role))
 
 
 @route("DELETE", "/guilds/{guild_id}/roles/{role_id}")
 def delete_role(ctx: RequestContext) -> Any:
-    backend = ctx.backend
-    guild_id = ctx.int_arg("guild_id")
-    backend.require_permissions(guild_id, backend.bot_user.id, None, "manage_roles")
-    backend.delete_role(guild_id, ctx.int_arg("role_id"))
+    ctx.require_guild_permissions(ctx.int_arg("guild_id"), "manage_roles")
+    ctx.backend.delete_role(ctx.int_arg("guild_id"), ctx.int_arg("role_id"))
 
 
 @route("GET", "/guilds/{guild_id}/roles")

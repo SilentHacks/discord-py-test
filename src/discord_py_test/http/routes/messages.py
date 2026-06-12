@@ -10,15 +10,14 @@ from ..router import RequestContext, route
 
 
 def _send_permissions(ctx: RequestContext, channel_id: int) -> None:
-    backend = ctx.backend
-    channel = backend.get_channel(channel_id)
+    channel = ctx.backend.get_channel(channel_id)
     if channel.type == 1:  # DM channel
         # You cannot DM another bot; real Discord rejects this on send (50007).
-        if any(backend.users[uid].bot for uid in channel.recipient_ids):
+        if any(ctx.backend.users[uid].bot for uid in channel.recipient_ids):
             raise errors.cannot_dm_bot()
         return
     perm = "send_messages_in_threads" if channel.is_thread else "send_messages"
-    backend.require_permissions(channel.guild_id, backend.bot_user.id, channel_id, perm)
+    ctx.require_channel_permissions(channel_id, perm)
 
 
 @route("POST", "/channels/{channel_id}/messages")
@@ -81,7 +80,7 @@ def delete_message(ctx: RequestContext) -> Any:
     message = backend.get_message(channel_id, ctx.int_arg("message_id"))
     channel = backend.get_channel(channel_id)
     if message.author_id != backend.bot_user.id and channel.guild_id is not None:
-        backend.require_permissions(channel.guild_id, backend.bot_user.id, channel_id, "manage_messages")
+        ctx.require_channel_permissions(channel_id, "manage_messages")
     backend.delete_message(channel_id, message.id)
 
 
@@ -90,20 +89,14 @@ def delete_message(ctx: RequestContext) -> Any:
 
 @route("PUT", "/channels/{channel_id}/messages/pins/{message_id}")
 def pin_message(ctx: RequestContext) -> Any:
-    backend = ctx.backend
-    channel_id = ctx.int_arg("channel_id")
-    channel = backend.get_channel(channel_id)
-    backend.require_permissions(channel.guild_id, backend.bot_user.id, channel_id, "manage_messages")
-    backend.set_pinned(channel_id, ctx.int_arg("message_id"), True)
+    channel = ctx.require_channel_permissions(ctx.int_arg("channel_id"), "manage_messages")
+    ctx.backend.set_pinned(channel.id, ctx.int_arg("message_id"), True)
 
 
 @route("DELETE", "/channels/{channel_id}/messages/pins/{message_id}")
 def unpin_message(ctx: RequestContext) -> Any:
-    backend = ctx.backend
-    channel_id = ctx.int_arg("channel_id")
-    channel = backend.get_channel(channel_id)
-    backend.require_permissions(channel.guild_id, backend.bot_user.id, channel_id, "manage_messages")
-    backend.set_pinned(channel_id, ctx.int_arg("message_id"), False)
+    channel = ctx.require_channel_permissions(ctx.int_arg("channel_id"), "manage_messages")
+    ctx.backend.set_pinned(channel.id, ctx.int_arg("message_id"), False)
 
 
 @route("GET", "/channels/{channel_id}/messages/pins")

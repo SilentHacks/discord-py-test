@@ -194,6 +194,33 @@ class Backend:
         payload["guild_id"] = str(guild_id)
         self.emit("GUILD_MEMBER_UPDATE", payload)
 
+    def edit_member(self, guild_id: int, user_id: int, changes: Mapping[str, Any]) -> Member:
+        """Apply validated field changes (nick/roles/timeout/…) and announce the update.
+
+        ``changes`` maps :class:`Member` attribute names to values; callers
+        validate permissions and hierarchy before calling, so this only writes
+        and emits — keeping the mutation and its GUILD_MEMBER_UPDATE atomic.
+        """
+        member = self.get_member(guild_id, user_id)
+        for attr, value in changes.items():
+            setattr(member, attr, value)
+        self.announce_member_update(guild_id, user_id)
+        return member
+
+    def add_member_role(self, guild_id: int, user_id: int, role_id: int) -> None:
+        """Give a member a role (if absent) and announce the update."""
+        member = self.get_member(guild_id, user_id)
+        if role_id not in member.role_ids:
+            member.role_ids.append(role_id)
+        self.announce_member_update(guild_id, user_id)
+
+    def remove_member_role(self, guild_id: int, user_id: int, role_id: int) -> None:
+        """Take a role from a member (if present) and announce the update."""
+        member = self.get_member(guild_id, user_id)
+        if role_id in member.role_ids:
+            member.role_ids.remove(role_id)
+        self.announce_member_update(guild_id, user_id)
+
     # ----------------------------------------------------------------- roles
 
     def create_role(self, guild_id: int, name: str, *, permissions: int = 0, **fields: Any) -> Role:
@@ -224,6 +251,14 @@ class Backend:
         role = self.get_guild(guild_id).roles.get(role_id)
         if role is None:
             raise errors.unknown_role()
+        return role
+
+    def edit_role(self, guild_id: int, role_id: int, changes: Mapping[str, Any]) -> Role:
+        """Apply validated field changes to a role and announce the update."""
+        role = self.get_role(guild_id, role_id)
+        for attr, value in changes.items():
+            setattr(role, attr, value)
+        self.emit("GUILD_ROLE_UPDATE", {"guild_id": str(guild_id), "role": serializers.role_payload(role)})
         return role
 
     def delete_role(self, guild_id: int, role_id: int) -> None:
@@ -289,6 +324,31 @@ class Backend:
     def announce_channel_update(self, channel_id: int) -> None:
         channel = self.get_channel(channel_id)
         self.emit("CHANNEL_UPDATE", serializers.channel_payload(self, channel))
+
+    def edit_channel(
+        self, channel_id: int, changes: Mapping[str, Any], *, overwrites: list[Overwrite] | None = None
+    ) -> Channel:
+        """Apply field/overwrite changes to a channel and announce the update."""
+        channel = self.get_channel(channel_id)
+        for attr, value in changes.items():
+            setattr(channel, attr, value)
+        if overwrites is not None:
+            channel.overwrites = overwrites
+        self.announce_channel_update(channel.id)
+        return channel
+
+    def set_overwrite(self, channel_id: int, overwrite: Overwrite) -> None:
+        """Add or replace a single permission overwrite and announce the update."""
+        channel = self.get_channel(channel_id)
+        channel.overwrites = [o for o in channel.overwrites if o.target_id != overwrite.target_id]
+        channel.overwrites.append(overwrite)
+        self.announce_channel_update(channel.id)
+
+    def delete_overwrite(self, channel_id: int, target_id: int) -> None:
+        """Remove a permission overwrite and announce the update."""
+        channel = self.get_channel(channel_id)
+        channel.overwrites = [o for o in channel.overwrites if o.target_id != target_id]
+        self.announce_channel_update(channel.id)
 
     def get_dm_channel(self, user_id: int) -> Channel:
         self.get_user(user_id)

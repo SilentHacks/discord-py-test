@@ -16,6 +16,7 @@ from typing import Any
 
 from ..backend import Backend
 from ..backend.errors import BackendError
+from ..backend.models import Channel
 
 
 class RouteNotImplemented(BackendError):
@@ -39,6 +40,21 @@ class RequestContext:
 
     def int_arg(self, name: str) -> int:
         return int(self.args[name])
+
+    def require_channel_permissions(self, channel_id: int, *names: str) -> Channel:
+        """Check the bot has ``names`` in a channel; return the channel.
+
+        Consolidates the get-channel-then-permission-check preamble most route
+        handlers share, so a missing check is a missing call rather than buried
+        in a handler body.
+        """
+        channel = self.backend.get_channel(channel_id)
+        self.backend.require_permissions(channel.guild_id, self.backend.bot_user.id, channel.id, *names)
+        return channel
+
+    def require_guild_permissions(self, guild_id: int, *names: str) -> None:
+        """Check the bot has guild-level ``names`` (no channel context)."""
+        self.backend.require_permissions(guild_id, self.backend.bot_user.id, None, *names)
 
     def body(self) -> dict[str, Any]:
         return self.json if isinstance(self.json, dict) else {}
