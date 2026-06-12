@@ -12,6 +12,7 @@ build/
 # Tooling caches
 .pytest_cache/
 .ruff_cache/
+.hypothesis/
 .coverage
 htmlcov/
 

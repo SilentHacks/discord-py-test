@@ -30,7 +30,10 @@ entirely in-process.
   (`50013 Missing Permissions`…), interaction lifecycle rules (`40060` on double-ack).
 - **Real bugs caught**: invoking a slash command that was never synced fails your test,
   just like it fails in production.
-- **Fast and deterministic**: no sleeps, no network, reproducible IDs.
+- **Fast and deterministic**: no sleeps, no network, reproducible IDs. Fast-forward
+  view timeouts and cooldowns with `env.advance_time()`.
+- **Debuggable failures**: failing tests automatically include a transcript of every
+  gateway event and REST call, and unhandled bot errors fail tests by default.
 - **Honest about gaps**: anything not implemented fails loudly with the route name —
   the framework never silently fakes success. See the [parity matrix](parity-matrix.md).
 

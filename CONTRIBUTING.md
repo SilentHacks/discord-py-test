@@ -35,9 +35,13 @@ uv run pyright src
   `discord.types` definitions.
 - **Never fake success silently.** Unimplemented routes must raise `RouteNotImplemented`.
 - Every new route or feature needs an integration test in `tests/integration/` driving
-  the sample bot (`tests/fixtures/sample_bot/`) through it, and a row in
-  `docs/parity-matrix.md`. Pure backend logic (permissions, routing) gets unit tests
-  in `tests/unit/`.
+  the sample bot (`tests/fixtures/sample_bot/`) through it, plus a parity-matrix update:
+  run `uv run python -m discord_py_test.parity docs/parity-matrix.md` to regenerate the
+  route inventory (a unit test enforces it), and update the curated feature table by hand.
+  Pure backend logic (permissions, routing) gets unit tests in `tests/unit/`.
+- New state mutations live on `Backend`, paired with their gateway emit; route handlers
+  parse, permission-check (`ctx.require_*_permissions`), call one backend method, and
+  serialize.
 - Public API lives on `Env` and the handle objects — no module-global state.
 - Add a towncrier news fragment in `changes/` for user-visible changes
   (e.g. `changes/42.feature.md`).
