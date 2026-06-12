@@ -23,18 +23,25 @@ def interaction_callback(ctx: RequestContext) -> Any:
     body = ctx.body()
     callback_type = body["type"]
     data = body.get("data") or {}
-    record["responded"] = True
+    ephemeral = bool(int(data.get("flags") or 0) & EPHEMERAL_FLAG)
     message = None
 
+    # Don't mark the interaction acknowledged until the callback is handled
+    # successfully: a callback that 400s (e.g. an oversized embed) does not
+    # consume the interaction on real Discord, so a retry must not see 40060.
     if callback_type == 4:  # channel message with source
-        ctx.json = data
-        record["ephemeral"] = bool(int(data.get("flags") or 0) & EPHEMERAL_FLAG)
-        message = bot_message(ctx, record["channel_id"], interaction=record)
+        message = bot_message(ctx, record["channel_id"], interaction=record, body=data)
         record["response_kind"] = "message"
         record["message_id"] = message.id
-    elif callback_type in (5, 6):  # deferred (with source / update)
+        record["ephemeral"] = ephemeral
+    elif callback_type == 5:  # deferred channel message with source
         record["response_kind"] = "deferred"
-        record["ephemeral"] = bool(int(data.get("flags") or 0) & EPHEMERAL_FLAG)
+        record["ephemeral"] = ephemeral
+    elif callback_type == 6:  # deferred update of the component's message
+        # @original is the clicked message; a later edit_original_response edits
+        # it in place rather than creating a new message.
+        record["response_kind"] = "deferred_update"
+        record["message_id"] = record["source_message_id"]
     elif callback_type == 7:  # update the component's message
         record["response_kind"] = "update"
         if record["source_message_id"] is not None:
@@ -50,6 +57,8 @@ def interaction_callback(ctx: RequestContext) -> Any:
         record["response_kind"] = "pong"
     else:
         raise errors.invalid_form_body(f"unknown interaction callback type {callback_type}")
+
+    record["responded"] = True
 
     response: dict[str, Any] = {
         "interaction": {
@@ -79,7 +88,7 @@ def execute_webhook(ctx: RequestContext) -> Any:
     if webhook_id is None or backend.webhooks[webhook_id].id != ctx.int_arg("webhook_id"):
         raise errors.unknown_webhook()
     webhook = backend.webhooks[webhook_id]
-    message = bot_message(ctx, webhook.channel_id, author_id=webhook.webhook_user_id)
+    message = bot_message(ctx, webhook.channel_id, author_id=webhook.webhook_user_id, webhook_id=webhook.id)
     return message_response(ctx, message)
 
 
@@ -104,8 +113,7 @@ def edit_original_response(ctx: RequestContext) -> Any:
         body = dict(ctx.body())
         if record["ephemeral"]:
             body["flags"] = int(body.get("flags") or 0) | EPHEMERAL_FLAG
-        ctx.json = body
-        message = bot_message(ctx, record["channel_id"], interaction=record)
+        message = bot_message(ctx, record["channel_id"], interaction=record, body=body)
         record["message_id"] = message.id
         record["response_kind"] = "message"
         return message_response(ctx, message)

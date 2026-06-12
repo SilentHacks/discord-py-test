@@ -88,7 +88,15 @@ class Backend:
         return (ms << 22) | (self._counter % 4096)
 
     def now_iso(self) -> str:
-        return datetime.datetime.now(datetime.timezone.utc).isoformat()
+        """The current virtual time as an ISO timestamp.
+
+        Driven by the same virtual clock as :meth:`snowflake` (epoch + counter
+        ms) rather than the wall clock, so a message's ``created_at`` (which
+        discord.py derives from its snowflake) and its serialized ``timestamp``
+        agree, and timestamps stay deterministic across runs.
+        """
+        ms = _VIRTUAL_EPOCH_MS + self._counter
+        return datetime.datetime.fromtimestamp(ms / 1000, datetime.timezone.utc).isoformat()
 
     def emit(self, event: str, payload: Mapping[str, Any]) -> None:
         for listener in self.subscribers:
@@ -220,6 +228,8 @@ class Backend:
     def delete_role(self, guild_id: int, role_id: int) -> None:
         guild = self.get_guild(guild_id)
         self.get_role(guild_id, role_id)
+        if role_id == guild_id:  # the @everyone role shares the guild id and can't be deleted
+            raise errors.invalid_form_body("Cannot delete the @everyone role")
         del guild.roles[role_id]
         for member in guild.members.values():
             if role_id in member.role_ids:
@@ -335,6 +345,7 @@ class Backend:
         flags: int = 0,
         reference: dict[str, Any] | None = None,
         interaction_metadata: dict[str, Any] | None = None,
+        webhook_id: int | None = None,
         broadcast: bool = True,
     ) -> Message:
         channel = self.get_channel(channel_id)
@@ -353,9 +364,10 @@ class Backend:
             attachments=attachments or [],
             reference=reference,
             interaction_metadata=interaction_metadata,
+            webhook_id=webhook_id,
             mention_user_ids=[int(m) for m in _USER_MENTION.findall(content or "")],
             mention_role_ids=[int(m) for m in _ROLE_MENTION.findall(content or "")],
-            mention_everyone="@everyone" in (content or ""),
+            mention_everyone=self._mentions_everyone(channel, author_id, content or ""),
         )
         self.messages[channel_id][message.id] = message
         channel.last_message_id = message.id
@@ -371,6 +383,15 @@ class Backend:
                     )
             self.emit("MESSAGE_CREATE", payload)
         return message
+
+    def _mentions_everyone(self, channel: Channel, author_id: int, content: str) -> bool:
+        """An @everyone only actually pings if the author may mention everyone."""
+        if "@everyone" not in content and "@here" not in content:
+            return False
+        if channel.guild_id is None:
+            return False
+        perms = self.compute_permissions(channel.guild_id, author_id, channel.id)
+        return bool(perms & permissions.flag("mention_everyone"))
 
     def get_message(self, channel_id: int, message_id: int) -> Message:
         message = self.messages.get(channel_id, {}).get(message_id)
@@ -557,4 +578,24 @@ class Backend:
         if target_id == guild.owner_id or guild.top_role_position(target_id) >= guild.top_role_position(
             actor_id
         ):
+            raise errors.missing_permissions()
+
+    def require_role_assignable(self, guild_id: int, actor_id: int, role_id: int) -> None:
+        """A role can only be assigned/edited if it sits below the actor's top role."""
+        guild = self.get_guild(guild_id)
+        if actor_id == guild.owner_id:
+            return
+        role = self.get_role(guild_id, role_id)
+        if role.position >= guild.top_role_position(actor_id):
+            raise errors.missing_permissions()
+
+    def require_can_grant(self, guild_id: int, actor_id: int, role_permissions: int) -> None:
+        """You cannot grant a role permissions you do not hold yourself (unless admin)."""
+        guild = self.get_guild(guild_id)
+        if actor_id == guild.owner_id:
+            return
+        actor_perms = self.compute_permissions(guild_id, actor_id)
+        if actor_perms & permissions.flag("administrator"):
+            return
+        if role_permissions & ~actor_perms:
             raise errors.missing_permissions()

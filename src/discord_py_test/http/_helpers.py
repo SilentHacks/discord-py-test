@@ -15,10 +15,18 @@ def bot_message(
     *,
     author_id: int | None = None,
     interaction: dict[str, Any] | None = None,
+    webhook_id: int | None = None,
+    body: dict[str, Any] | None = None,
 ) -> Message:
-    """Create a message from a REST request body, authored by the bot (or a webhook user)."""
+    """Create a message from a request body, authored by the bot (or a webhook user).
+
+    ``body`` defaults to the request's JSON body, but callers (e.g. interaction
+    callbacks, where the message payload is nested under ``data``) may pass an
+    explicit body instead of mutating the shared request context.
+    """
     backend = ctx.backend
-    body = ctx.body()
+    if body is None:
+        body = ctx.body()
     flags = int(body.get("flags") or 0)
     interaction_metadata = None
     if interaction is not None:
@@ -46,6 +54,7 @@ def bot_message(
         flags=flags,
         reference=reference,
         interaction_metadata=interaction_metadata,
+        webhook_id=webhook_id,
         broadcast=not flags & EPHEMERAL_FLAG,
     )
 

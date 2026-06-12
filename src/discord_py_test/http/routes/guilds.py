@@ -30,18 +30,30 @@ def edit_member(ctx: RequestContext) -> Any:
     member = backend.get_member(guild_id, user_id)
     body = ctx.body()
     bot_id = backend.bot_user.id
+
+    # Validate every change before applying any of them: a partial edit that
+    # 403s halfway would desync backend state from the bot's cache (no
+    # GUILD_MEMBER_UPDATE is emitted on failure).
+    new_roles: list[int] | None = None
     if "nick" in body:
         perm = "change_nickname" if user_id == bot_id else "manage_nicknames"
         backend.require_permissions(guild_id, bot_id, None, perm)
         if user_id != bot_id:
             backend.require_hierarchy(guild_id, bot_id, user_id)
-        member.nick = body["nick"]
     if "roles" in body:
         backend.require_permissions(guild_id, bot_id, None, "manage_roles")
-        member.role_ids = [int(r) for r in body["roles"]]
+        new_roles = [int(r) for r in body["roles"]]
+        for role_id in set(new_roles) ^ set(member.role_ids):  # only the added/removed roles
+            backend.require_role_assignable(guild_id, bot_id, role_id)
     if "communication_disabled_until" in body:
         backend.require_permissions(guild_id, bot_id, None, "moderate_members")
         backend.require_hierarchy(guild_id, bot_id, user_id)
+
+    if "nick" in body:
+        member.nick = body["nick"]
+    if new_roles is not None:
+        member.role_ids = new_roles
+    if "communication_disabled_until" in body:
         member.timed_out_until = body["communication_disabled_until"]
     for key in ("mute", "deaf"):
         if key in body:
@@ -57,6 +69,7 @@ def add_member_role(ctx: RequestContext) -> Any:
     backend.require_permissions(guild_id, backend.bot_user.id, None, "manage_roles")
     member = backend.get_member(guild_id, ctx.int_arg("user_id"))
     role = backend.get_role(guild_id, ctx.int_arg("role_id"))
+    backend.require_role_assignable(guild_id, backend.bot_user.id, role.id)
     if role.id not in member.role_ids:
         member.role_ids.append(role.id)
     backend.announce_member_update(guild_id, member.user_id)
@@ -69,6 +82,7 @@ def remove_member_role(ctx: RequestContext) -> Any:
     backend.require_permissions(guild_id, backend.bot_user.id, None, "manage_roles")
     member = backend.get_member(guild_id, ctx.int_arg("user_id"))
     role_id = ctx.int_arg("role_id")
+    backend.require_role_assignable(guild_id, backend.bot_user.id, role_id)
     if role_id in member.role_ids:
         member.role_ids.remove(role_id)
     backend.announce_member_update(guild_id, member.user_id)
@@ -140,12 +154,15 @@ def get_ban(ctx: RequestContext) -> Any:
 def create_role(ctx: RequestContext) -> Any:
     backend = ctx.backend
     guild_id = ctx.int_arg("guild_id")
-    backend.require_permissions(guild_id, backend.bot_user.id, None, "manage_roles")
+    bot_id = backend.bot_user.id
+    backend.require_permissions(guild_id, bot_id, None, "manage_roles")
     body = ctx.body()
+    new_permissions = int(body.get("permissions") or 0)
+    backend.require_can_grant(guild_id, bot_id, new_permissions)
     role = backend.create_role(
         guild_id,
         body.get("name") or "new role",
-        permissions=int(body.get("permissions") or 0),
+        permissions=new_permissions,
         hoist=bool(body.get("hoist", False)),
         mentionable=bool(body.get("mentionable", False)),
         color=int(body.get("color") or 0),
@@ -157,9 +174,18 @@ def create_role(ctx: RequestContext) -> Any:
 def edit_role(ctx: RequestContext) -> Any:
     backend = ctx.backend
     guild_id = ctx.int_arg("guild_id")
-    backend.require_permissions(guild_id, backend.bot_user.id, None, "manage_roles")
-    role = backend.get_role(guild_id, ctx.int_arg("role_id"))
+    role_id = ctx.int_arg("role_id")
+    bot_id = backend.bot_user.id
+    backend.require_permissions(guild_id, bot_id, None, "manage_roles")
+    role = backend.get_role(guild_id, role_id)
     body = ctx.body()
+
+    # Validate before mutating: a role above the bot can't be edited, and the
+    # bot can't grant permissions it lacks.
+    backend.require_role_assignable(guild_id, bot_id, role_id)
+    if "permissions" in body and body["permissions"] is not None:
+        backend.require_can_grant(guild_id, bot_id, int(body["permissions"]))
+
     for key in ("name", "hoist", "mentionable", "color"):
         if key in body and body[key] is not None:
             setattr(role, key, body[key])

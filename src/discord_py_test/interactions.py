@@ -137,7 +137,7 @@ def build_options(
                 resolved.setdefault("channels", {})[wire_value] = dict(
                     serializers.channel_payload(backend, backend.get_channel(value.id))
                 )
-            elif option_type == ROLE and isinstance(value, RoleHandle):
+            elif option_type in (ROLE, MENTIONABLE) and isinstance(value, RoleHandle):
                 resolved.setdefault("roles", {})[wire_value] = dict(serializers.role_payload(value._role))
         else:
             expected = _SCALAR_TYPES.get(option_type)

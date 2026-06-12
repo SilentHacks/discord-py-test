@@ -9,16 +9,18 @@ channels), then delivered as authentic gateway events.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import discord
 
 from . import interactions as _interactions
 from .backend import serializers
 from .backend.errors import SetupError
-from .backend.models import EPHEMERAL_FLAG
 from .builders import ChannelHandle, GuildHandle, UserHandle
 from .results import InteractionResult, ResponseMessage, to_discord_message
+
+if TYPE_CHECKING:
+    from .env import Env
 
 BUTTON = 2
 STRING_SELECT = 3
@@ -29,7 +31,7 @@ MessageLike = discord.Message | ResponseMessage
 class MemberActor:
     """A guild member that acts like a real human user."""
 
-    def __init__(self, env: Any, guild: GuildHandle, user: UserHandle) -> None:
+    def __init__(self, env: Env, guild: GuildHandle, user: UserHandle) -> None:
         self._env = env
         self.guild = guild
         self.user = user
@@ -298,13 +300,11 @@ class MemberActor:
     def _visible_message(self, message: MessageLike) -> Any:
         backend = self._env.backend
         stored = backend.get_message(_channel_id_of(message), message.id)
-        if stored.flags & EPHEMERAL_FLAG:
-            meta = stored.interaction_metadata or {}
-            if str((meta.get("user") or {}).get("id")) != str(self.id):
-                raise SetupError(
-                    "That message is ephemeral and not visible to this user — "
-                    "a real user could not interact with it"
-                )
+        if not stored.visible_to(self.id):
+            raise SetupError(
+                "That message is ephemeral and not visible to this user — "
+                "a real user could not interact with it"
+            )
         return stored
 
     async def _component_interaction(self, stored: Any, data: dict[str, Any]) -> InteractionResult:

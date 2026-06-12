@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 import discord
 
 from .backend import serializers
+from .backend.errors import BackendError
 from .backend.models import EPHEMERAL_FLAG, Message
 
 if TYPE_CHECKING:
@@ -75,7 +76,7 @@ class InteractionResult:
 
     @property
     def deferred(self) -> bool:
-        return self.record["response_kind"] == "deferred"
+        return self.record["response_kind"] in ("deferred", "deferred_update")
 
     @property
     def ephemeral(self) -> bool:
@@ -103,8 +104,8 @@ class InteractionResult:
         for message_id in self.record["followup_ids"]:
             try:
                 message = self._env.backend.get_message(self.record["channel_id"], message_id)
-            except Exception:
-                continue  # deleted followup
+            except BackendError:
+                continue  # deleted followup (Unknown Message)
             out.append(ResponseMessage(self._env, message))
         return out
 
