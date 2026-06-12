@@ -106,7 +106,10 @@ class Env:
             task.cancel()
         await asyncio.gather(*to_cancel, return_exceptions=True)
 
-    async def settle(self, timeout: float = 5.0, idle: float = 0.05) -> None:
+    async def settle(self, timeout: float = 5.0, idle: float = 0.05) -> None:  # noqa: ASYNC109
+        # `timeout` is deliberate public API: settle() polls for quiescence and
+        # decides between "parked on a future" and "still working", so it can't
+        # be replaced by wrapping the body in asyncio.timeout().
         """Wait until the bot has finished reacting to injected events.
 
         Waits for all tracked tasks to complete. A task that completes no work

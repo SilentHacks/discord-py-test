@@ -289,7 +289,7 @@ class MemberActor:
                         }
                     )
         channel = ChannelHandle(
-            self._env, self.guild, self._env.backend.get_channel(shown.record["channel_id"])
+            self._env, self.guild, self._env.backend.get_channel(shown._interaction.channel_id)
         )
         return await self._dispatch_interaction(
             5, channel, {"custom_id": spec["custom_id"], "components": components}
@@ -340,7 +340,7 @@ class MemberActor:
         if extra:
             payload.update(extra)
         if source_message_id is not None:
-            record["source_message_id"] = source_message_id
+            record.source_message_id = source_message_id
         backend.emit("INTERACTION_CREATE", payload)
         await self._env.settle()
         return InteractionResult(self._env, record)

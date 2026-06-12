@@ -20,6 +20,7 @@ from .cdn import CdnStore
 from .models import (
     Channel,
     Guild,
+    Interaction,
     Member,
     Message,
     Overwrite,
@@ -70,7 +71,7 @@ class Backend:
         self.commands: dict[
             int | None, dict[tuple[str, int], dict[str, Any]]
         ] = {}  # scope -> (name, type) -> command
-        self.interactions: dict[int, dict[str, Any]] = {}
+        self.interactions: dict[int, Interaction] = {}
         self.interaction_tokens: dict[str, int] = {}
         self.cdn = CdnStore()
         self.subscribers: list[EventListener] = []
@@ -96,7 +97,7 @@ class Backend:
         agree, and timestamps stay deterministic across runs.
         """
         ms = _VIRTUAL_EPOCH_MS + self._counter
-        return datetime.datetime.fromtimestamp(ms / 1000, datetime.timezone.utc).isoformat()
+        return datetime.datetime.fromtimestamp(ms / 1000, datetime.UTC).isoformat()
 
     def emit(self, event: str, payload: Mapping[str, Any]) -> None:
         for listener in self.subscribers:
@@ -518,31 +519,21 @@ class Backend:
 
     # ----------------------------------------------------------- interactions
 
-    def new_interaction(
-        self, type: int, channel_id: int, user_id: int, guild_id: int | None
-    ) -> dict[str, Any]:
+    def new_interaction(self, type: int, channel_id: int, user_id: int, guild_id: int | None) -> Interaction:
         interaction_id = self.snowflake()
-        record: dict[str, Any] = {
-            "id": interaction_id,
-            "token": f"dpt_interaction_{interaction_id}",
-            "type": type,
-            "channel_id": channel_id,
-            "guild_id": guild_id,
-            "user_id": user_id,
-            "responded": False,
-            "response_kind": None,  # 'message' | 'deferred' | 'update' | 'modal' | 'autocomplete' | 'pong'
-            "message_id": None,
-            "source_message_id": None,
-            "ephemeral": False,
-            "followup_ids": [],
-            "modal": None,
-            "autocomplete_choices": None,
-        }
+        record = Interaction(
+            id=interaction_id,
+            token=f"dpt_interaction_{interaction_id}",
+            type=type,
+            channel_id=channel_id,
+            guild_id=guild_id,
+            user_id=user_id,
+        )
         self.interactions[interaction_id] = record
-        self.interaction_tokens[record["token"]] = interaction_id
+        self.interaction_tokens[record.token] = interaction_id
         return record
 
-    def interaction_by_token(self, token: str) -> dict[str, Any]:
+    def interaction_by_token(self, token: str) -> Interaction:
         interaction_id = self.interaction_tokens.get(token)
         if interaction_id is None:
             raise errors.unknown_webhook()

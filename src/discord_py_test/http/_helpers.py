@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from ..backend import errors, serializers
-from ..backend.models import EPHEMERAL_FLAG, Message
+from ..backend.models import EPHEMERAL_FLAG, Interaction, Message
 from .router import RequestContext
 
 
@@ -14,7 +14,7 @@ def bot_message(
     channel_id: int,
     *,
     author_id: int | None = None,
-    interaction: dict[str, Any] | None = None,
+    interaction: Interaction | None = None,
     webhook_id: int | None = None,
     body: dict[str, Any] | None = None,
 ) -> Message:
@@ -31,9 +31,9 @@ def bot_message(
     interaction_metadata = None
     if interaction is not None:
         interaction_metadata = {
-            "id": str(interaction["id"]),
-            "type": interaction["type"],
-            "user": serializers.user_payload(backend.users[interaction["user_id"]]),
+            "id": str(interaction.id),
+            "type": interaction.type,
+            "user": serializers.user_payload(backend.users[interaction.user_id]),
             "authorizing_integration_owners": {},
         }
     reference = body.get("message_reference")

@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any
 
 from .backend import Backend, serializers
 from .backend.errors import SetupError
+from .backend.models import Interaction
 
 if TYPE_CHECKING:
     from .actors import MemberActor
@@ -35,15 +36,15 @@ def base_payload(
     guild_id: int | None,
     user_id: int,
     data: dict[str, Any],
-) -> tuple[dict[str, Any], dict[str, Any]]:
+) -> tuple[Interaction, dict[str, Any]]:
     """Create an interaction record and its INTERACTION_CREATE payload."""
     record = backend.new_interaction(type, channel_id, user_id, guild_id)
     channel = backend.get_channel(channel_id)
     payload: dict[str, Any] = {
-        "id": str(record["id"]),
+        "id": str(record.id),
         "application_id": str(backend.application_id),
         "type": type,
-        "token": record["token"],
+        "token": record.token,
         "version": 1,
         "data": data,
         "channel_id": str(channel_id),
