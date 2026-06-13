@@ -76,3 +76,39 @@ async def test_wildcard_keyword_matches_substring(env, channel, alice):
     await alice.send(channel, "delicious spammer recipe")  # substring match via wildcard
     await env.settle()
     assert channel.history() == []
+
+
+def _mention_spam_rule_kwargs(limit):
+    return dict(
+        name="No mention spam",
+        event_type=discord.AutoModRuleEventType.message_send,
+        trigger=discord.AutoModTrigger(type=discord.AutoModRuleTriggerType.mention_spam, mention_limit=limit),
+        actions=[discord.AutoModRuleAction(custom_message="blocked")],
+        enabled=True,
+    )
+
+
+async def test_mention_spam_blocks_over_limit(env, channel, alice):
+    guild = env.bot.get_guild(env.guild.id)
+    await guild.create_automod_rule(**_mention_spam_rule_kwargs(2))
+    await env.settle()
+
+    bob = env.guild.add_member(env.create_user("bob"))
+    carol = env.guild.add_member(env.create_user("carol"))
+    await alice.send(channel, f"{alice.mention} {bob.mention} {carol.mention} look here")
+    await env.settle()
+
+    assert channel.history() == []
+    assert "AUTO_MODERATION_ACTION_EXECUTION" in env.transcript()
+
+
+async def test_mention_spam_allows_under_limit(env, channel, alice):
+    guild = env.bot.get_guild(env.guild.id)
+    await guild.create_automod_rule(**_mention_spam_rule_kwargs(3))
+    await env.settle()
+
+    bob = env.guild.add_member(env.create_user("bob"))
+    await alice.send(channel, f"hi {alice.mention} {bob.mention}")
+    await env.settle()
+
+    assert len(channel.history()) == 1

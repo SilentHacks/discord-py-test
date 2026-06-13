@@ -1081,18 +1081,36 @@ class Backend:
         role_ids = set(member.role_ids) if member else set()
         blocked = False
         for rule in guild.auto_mod_rules.values():
-            if not rule.enabled or rule.trigger_type != 1:
+            if not rule.enabled:
                 continue
             if channel.id in rule.exempt_channels or role_ids & set(rule.exempt_roles):
                 continue
-            keyword = self._match_keyword(rule, content)
-            if keyword is None:
+            matched = self._auto_mod_match(rule, content)
+            if matched is None:
                 continue
             for action in rule.actions:
-                self._emit_auto_mod_execution(rule, channel, author_id, content, keyword, action)
+                self._emit_auto_mod_execution(rule, channel, author_id, content, matched, action)
                 if int(action.get("type", 0)) == 1:  # BLOCK_MESSAGE
                     blocked = True
         return blocked
+
+    def _auto_mod_match(self, rule: AutoModRule, content: str) -> str | None:
+        """Whether ``content`` trips ``rule``; returns the matched keyword.
+
+        Keyword rules (trigger_type 1) return the offending keyword; mention-spam
+        rules (trigger_type 5) return an empty string (no keyword) when the
+        user+role mention count exceeds ``mention_total_limit``. Other trigger
+        types are not evaluated yet.
+        """
+        if rule.trigger_type == 1:
+            return self._match_keyword(rule, content)
+        if rule.trigger_type == 5:  # MENTION_SPAM
+            limit = rule.trigger_metadata.get("mention_total_limit")
+            if limit is None:
+                return None
+            mentions = len(_USER_MENTION.findall(content)) + len(_ROLE_MENTION.findall(content))
+            return "" if mentions > int(limit) else None
+        return None
 
     @staticmethod
     def _match_keyword(rule: AutoModRule, content: str) -> str | None:
@@ -1132,8 +1150,8 @@ class Backend:
                 "user_id": str(user_id),
                 "channel_id": str(channel.id),
                 "content": content,
-                "matched_keyword": keyword,
-                "matched_content": keyword,
+                "matched_keyword": keyword or None,
+                "matched_content": keyword or None,
             },
         )
 
