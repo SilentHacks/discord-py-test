@@ -23,7 +23,9 @@ def create_bot() -> commands.Bot:
     bot = commands.Bot(command_prefix="!", intents=intents)
 
     # Context menus can't live on cogs declaratively; register one here.
-    @bot.tree.context_menu(name="Report")
+    # Its name has a space on purpose — context-menu names commonly do, and the
+    # resolver must not mistake the words for a subcommand path.
+    @bot.tree.context_menu(name="Report Member")
     async def report(interaction: discord.Interaction, member: discord.Member) -> None:
         await interaction.response.send_message(f"Reported {member.display_name}", ephemeral=True)
 

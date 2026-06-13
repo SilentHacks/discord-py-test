@@ -17,7 +17,7 @@ from . import interactions as _interactions
 from .backend import serializers
 from .backend.errors import SetupError
 from .builders import ChannelHandle, GuildHandle, UserHandle
-from .enums import ComponentType, InteractionType
+from .enums import AppCommandType, ComponentType, InteractionType
 from .results import InteractionResult, ResponseMessage, to_discord_message
 
 if TYPE_CHECKING:
@@ -132,13 +132,24 @@ class MemberActor:
 
     # ---------------------------------------------------------- app commands
 
-    def _resolve_command(self, name: str, type: int = 1) -> tuple[dict[str, Any], dict[str, Any], list[str]]:
-        """Resolve "root [group] [sub]" to (root command, leaf spec, nesting path)."""
-        backend = self._env.backend
-        parts = name.split()
-        root = backend.find_command(parts[0], self.guild.id, type=type)
+    def _resolve_root(self, name: str, type: int) -> dict[str, Any]:
+        """Find a registered command by exact name, falling back to the unsynced tree."""
+        root = self._env.backend.find_command(name, self.guild.id, type=type)
         if root is None:
-            root = self._unsynced_fallback(parts[0], type)
+            root = self._unsynced_fallback(name, type)
+        return root
+
+    def _resolve_command(
+        self, name: str, type: int = AppCommandType.CHAT_INPUT
+    ) -> tuple[dict[str, Any], dict[str, Any], list[str]]:
+        """Resolve "root [group] [sub]" to (root command, leaf spec, nesting path).
+
+        Only slash commands nest, so the space-separated parts are walked as a
+        subcommand path; context menus (whose names contain spaces) resolve by
+        full name via :meth:`_resolve_root` instead.
+        """
+        parts = name.split()
+        root = self._resolve_root(parts[0], type)
         leaf, nesting = _interactions.walk_to_subcommand(root, parts[1:])
         return root, leaf, nesting
 
@@ -164,7 +175,9 @@ class MemberActor:
             guild_id,
             [c.to_dict(tree) for c in self._env.bot.tree.get_commands(guild=scope)],  # type: ignore[union-attr]
         )
-        return next(c for c in registered if c["name"] == name and c.get("type", 1) == type)
+        return next(
+            c for c in registered if c["name"] == name and c.get("type", AppCommandType.CHAT_INPUT) == type
+        )
 
     async def slash(self, channel: ChannelHandle, name: str, /, **options: Any) -> InteractionResult:
         """Invoke a synced slash command (use spaces for subcommands: "config set")."""
@@ -174,7 +187,7 @@ class MemberActor:
         data: dict[str, Any] = {
             "id": root["id"],
             "name": root["name"],
-            "type": root.get("type", 1),
+            "type": root.get("type", AppCommandType.CHAT_INPUT),
             "options": _interactions.nest_options(root, nesting, leaf_options),
         }
         if resolved:
@@ -190,7 +203,7 @@ class MemberActor:
         self._check(channel, "use_application_commands")
         backend = self._env.backend
         if isinstance(target, MemberActor):
-            command_type = 2
+            command_type = AppCommandType.USER
             guild = backend.get_guild(self.guild.id)
             resolved: dict[str, Any] = {
                 "users": {str(target.id): dict(serializers.user_payload(backend.get_user(target.id)))},
@@ -201,10 +214,12 @@ class MemberActor:
                 },
             }
         else:
-            command_type = 3
+            command_type = AppCommandType.MESSAGE
             stored = backend.get_message(_channel_id_of(target), target.id)
             resolved = {"messages": {str(target.id): dict(serializers.message_payload(backend, stored))}}
-        root, _leaf, _nesting = self._resolve_command(name, type=command_type)
+        # Context-menu names contain spaces and never nest, so resolve the full
+        # name directly rather than treating words as a subcommand path.
+        root = self._resolve_root(name, command_type)
         data = {
             "id": root["id"],
             "name": root["name"],
@@ -229,7 +244,7 @@ class MemberActor:
         data = {
             "id": root["id"],
             "name": root["name"],
-            "type": root.get("type", 1),
+            "type": root.get("type", AppCommandType.CHAT_INPUT),
             "options": _interactions.nest_options(root, nesting, leaf_options),
         }
         result = await self._dispatch_interaction(

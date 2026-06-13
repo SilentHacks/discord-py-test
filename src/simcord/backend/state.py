@@ -15,6 +15,7 @@ from typing import Any
 
 import discord
 
+from ..enums import AppCommandType
 from . import errors, permissions, serializers
 from .cdn import CdnStore
 from .models import (
@@ -572,7 +573,7 @@ class Backend:
             cmd = dict(payload)
             cmd["id"] = str(self.snowflake())
             cmd["application_id"] = str(self.application_id)
-            cmd.setdefault("type", 1)
+            cmd.setdefault("type", AppCommandType.CHAT_INPUT)
             cmd.setdefault("description", "")
             cmd.setdefault("options", [])
             cmd.setdefault("default_member_permissions", None)
@@ -584,7 +585,9 @@ class Backend:
         self.commands[guild_id] = registered
         return list(registered.values())
 
-    def find_command(self, name: str, guild_id: int | None, type: int = 1) -> dict[str, Any] | None:
+    def find_command(
+        self, name: str, guild_id: int | None, type: int = AppCommandType.CHAT_INPUT
+    ) -> dict[str, Any] | None:
         for scope in (guild_id, None):
             cmd = self.commands.get(scope, {}).get((name, type))
             if cmd is not None:

@@ -27,6 +27,14 @@ class OptionType(IntEnum):
     ATTACHMENT = 11
 
 
+class AppCommandType(IntEnum):
+    """Application-command types (slash, user context menu, message context menu)."""
+
+    CHAT_INPUT = 1
+    USER = 2
+    MESSAGE = 3
+
+
 class InteractionType(IntEnum):
     """Incoming interaction types."""
 

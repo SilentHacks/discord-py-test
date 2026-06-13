@@ -14,8 +14,10 @@ async def test_unknown_subcommand_is_caught(env, channel, alice):
 
 
 async def test_user_context_menu(env, channel, alice):
+    # The menu name contains a space; it must resolve by full name, not be split
+    # into a "Report" command with a "Member" subcommand.
     bob = env.guild.add_member(env.create_user("bob"))
-    result = await alice.context_menu(channel, "Report", bob)
+    result = await alice.context_menu(channel, "Report Member", bob)
     assert result.ephemeral
     assert result.response.content == "Reported bob"
 
