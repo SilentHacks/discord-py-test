@@ -97,13 +97,14 @@ def walk_to_subcommand(command: dict[str, Any], path: list[str]) -> tuple[dict[s
 
 
 def resolve_handle(
-    backend: Backend, value: Any, resolved: dict[str, dict[str, Any]]
+    backend: Backend, value: Any, resolved: dict[str, dict[str, Any]], *, user_id: int
 ) -> None:
     """Add a single handle's ``resolved`` payload, by kind, into ``resolved``.
 
     Shared by slash-command option building and entity-select interactions so
     the ``users``/``members``/``roles``/``channels`` payload shapes have a single
-    source of truth.
+    source of truth. ``user_id`` is the acting user, used to stamp the per-channel
+    ``permissions`` field Discord includes on resolved channels.
     """
     from .actors import MemberActor
     from .builders import ChannelHandle, RoleHandle, UserHandle
@@ -121,9 +122,15 @@ def resolve_handle(
     elif isinstance(value, RoleHandle):
         resolved.setdefault("roles", {})[wire_id] = dict(serializers.role_payload(value._role))
     elif isinstance(value, ChannelHandle):
-        resolved.setdefault("channels", {})[wire_id] = dict(
-            serializers.channel_payload(backend, backend.get_channel(value.id))
-        )
+        channel = backend.get_channel(value.id)
+        payload = dict(serializers.channel_payload(backend, channel))
+        # Resolved channels carry the acting user's permissions in that channel,
+        # which AppCommandChannel requires.
+        if channel.guild_id is not None:
+            payload["permissions"] = str(
+                backend.compute_permissions(channel.guild_id, user_id, channel.id)
+            )
+        resolved.setdefault("channels", {})[wire_id] = payload
     else:
         raise SetupError(f"Don't know how to resolve {type(value).__name__} into interaction data")
 
@@ -152,7 +159,7 @@ def build_options(
         wire_value: Any
         if option_type in _SNOWFLAKE_TYPES:
             wire_value = str(value.id)
-            resolve_handle(backend, value, resolved)
+            resolve_handle(backend, value, resolved, user_id=actor.id)
         else:
             expected = _SCALAR_TYPES.get(option_type)
             if expected is not None and not isinstance(value, expected):

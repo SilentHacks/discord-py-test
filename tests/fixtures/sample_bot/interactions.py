@@ -51,6 +51,32 @@ class ColorView(discord.ui.View):
         await interaction.response.send_message(f"Picked {select.values[0]}")
 
 
+class AssignView(discord.ui.View):
+    @discord.ui.select(cls=discord.ui.UserSelect, custom_id="who", min_values=1, max_values=2)
+    async def who(self, interaction: discord.Interaction, select: discord.ui.UserSelect) -> None:
+        names = ", ".join(u.display_name for u in select.values)
+        await interaction.response.send_message(f"Picked {names}")
+
+    @discord.ui.select(cls=discord.ui.RoleSelect, custom_id="role")
+    async def role(self, interaction: discord.Interaction, select: discord.ui.RoleSelect) -> None:
+        await interaction.response.send_message(f"Role {select.values[0].name}")
+
+    @discord.ui.select(cls=discord.ui.ChannelSelect, custom_id="chan")
+    async def chan(self, interaction: discord.Interaction, select: discord.ui.ChannelSelect) -> None:
+        await interaction.response.send_message(f"Channel {select.values[0].name}")
+
+
+class PersistentView(discord.ui.View):
+    """A view with no timeout and a fixed custom_id — re-registered on restart."""
+
+    def __init__(self) -> None:
+        super().__init__(timeout=None)
+
+    @discord.ui.button(label="Ping", custom_id="persistent:ping")
+    async def ping(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        await interaction.response.send_message("pong")
+
+
 class FeedbackModal(discord.ui.Modal, title="Feedback"):
     name = discord.ui.TextInput(label="Name", custom_id="name")
 
@@ -101,6 +127,14 @@ class Interactions(commands.Cog):
     @app_commands.command(description="Pick a color")
     async def color(self, interaction: discord.Interaction) -> None:
         await interaction.response.send_message("Pick:", view=ColorView())
+
+    @app_commands.command(description="Pick people, a role and a channel")
+    async def assign(self, interaction: discord.Interaction) -> None:
+        await interaction.response.send_message("Pick:", view=AssignView())
+
+    @app_commands.command(description="Post a persistent control panel")
+    async def panel(self, interaction: discord.Interaction) -> None:
+        await interaction.response.send_message("Panel", view=PersistentView())
 
     @app_commands.command(description="Give feedback")
     async def feedback(self, interaction: discord.Interaction) -> None:

@@ -32,6 +32,9 @@ def create_bot() -> commands.Bot:
     async def setup_hook() -> None:
         for extension in EXTENSIONS:
             await bot.load_extension(extension)
+        from fixtures.sample_bot.interactions import PersistentView
+
+        bot.add_view(PersistentView())
         await bot.tree.sync()
 
     bot.setup_hook = setup_hook
