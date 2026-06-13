@@ -316,6 +316,34 @@ def get_ban(ctx: RequestContext) -> Any:
     return _ban_payload(ctx, user_id, guild.bans[user_id])
 
 
+def _edit_voice_state(ctx: RequestContext, guild_id: int, user_id: int) -> None:
+    backend = ctx.backend
+    state = backend.get_guild(guild_id).voice_states.get(user_id)
+    if state is None:
+        raise errors.target_not_connected_to_voice()
+    body = ctx.body()
+    flags: dict[str, Any] = {}
+    if "suppress" in body:
+        flags["suppress"] = bool(body["suppress"])
+    if "request_to_speak_timestamp" in body:
+        flags["request_to_speak_timestamp"] = body["request_to_speak_timestamp"]
+    backend.set_voice_state(guild_id, user_id, state.channel_id, **flags)
+
+
+@route("PATCH", "/guilds/{guild_id}/voice-states/@me")
+def edit_my_voice_state(ctx: RequestContext) -> Any:
+    # The bot's own stage voice state (request-to-speak / un-suppress).
+    _edit_voice_state(ctx, ctx.int_arg("guild_id"), ctx.backend.bot_user.id)
+
+
+@route("PATCH", "/guilds/{guild_id}/voice-states/{user_id}")
+def edit_voice_state(ctx: RequestContext) -> Any:
+    # Inviting another member to speak / suppressing them needs mute_members.
+    guild_id = ctx.int_arg("guild_id")
+    ctx.require_guild_permissions(guild_id, "mute_members")
+    _edit_voice_state(ctx, guild_id, ctx.int_arg("user_id"))
+
+
 @route("POST", "/guilds/{guild_id}/roles")
 def create_role(ctx: RequestContext) -> Any:
     backend = ctx.backend

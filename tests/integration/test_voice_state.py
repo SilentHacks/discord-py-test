@@ -93,3 +93,58 @@ async def test_sample_bot_voice_log_listener(env, alice):
 
     await alice.join_voice(voice)
     assert voice_log.last_message.content == "alice joined General Voice"
+
+
+async def test_invite_member_to_speak_on_stage(env, alice):
+    stage = env.guild.create_stage_channel("Stage")
+    await env.settle()
+    await alice.join_voice(stage)
+    # Audience members are suppressed; the bot invites alice to speak.
+    env.backend.get_guild(env.guild.id).voice_states[alice.id].suppress = True
+
+    guild = env.bot.get_guild(env.guild.id)
+    await guild.get_member(alice.id).edit(suppress=False)
+    await env.settle()
+
+    assert env.guild.voice_states()[alice.id].suppress is False
+
+
+async def test_request_to_speak_as_bot(env):
+    stage = env.guild.create_stage_channel("Stage")
+    await env.settle()
+    # The bot cannot open a real voice connection, so seed its voice state.
+    env.backend.set_voice_state(env.guild.id, env.bot.user.id, stage.id, suppress=True)
+    await env.settle()
+
+    guild = env.bot.get_guild(env.guild.id)
+    await guild.me.request_to_speak()
+    await env.settle()
+
+    assert env.guild.voice_states()[env.bot.user.id].request_to_speak_timestamp is not None
+
+
+async def test_edit_voice_state_when_disconnected_errors(env, alice):
+    env.guild.create_stage_channel("Stage")
+    await env.settle()
+    guild = env.bot.get_guild(env.guild.id)
+
+    # alice is not connected, so there is no voice state to edit.
+    import discord
+
+    with pytest.raises(discord.HTTPException) as exc:
+        await guild.get_member(alice.id).edit(suppress=False)
+    assert exc.value.code == 40032
+
+
+async def test_edit_others_voice_state_requires_mute_members(env, alice):
+    stage = env.guild.create_stage_channel("Stage")
+    await env.settle()
+    await alice.join_voice(stage)
+    mask = ~discord.Permissions(mute_members=True).value
+    for role in env.backend.get_guild(env.guild.id).roles.values():
+        role.permissions &= mask
+
+    guild = env.bot.get_guild(env.guild.id)
+    with pytest.raises(discord.Forbidden) as exc:
+        await guild.get_member(alice.id).edit(suppress=False)
+    assert exc.value.code == 50013
