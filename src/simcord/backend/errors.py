@@ -106,3 +106,7 @@ def unknown_auto_mod_rule() -> BackendError:
 
 def target_not_connected_to_voice() -> BackendError:
     return BackendError(400, 40032, "Target user is not connected to voice")
+
+
+def unknown_command_permissions() -> BackendError:
+    return BackendError(404, 10066, "Unknown application command permissions")

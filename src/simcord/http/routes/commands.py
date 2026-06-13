@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from ...backend import errors
 from ..router import RequestContext, route
 
 
@@ -25,3 +26,21 @@ def get_global_commands(ctx: RequestContext) -> Any:
 @route("GET", "/applications/{application_id}/guilds/{guild_id}/commands")
 def get_guild_commands(ctx: RequestContext) -> Any:
     return list(ctx.backend.commands.get(ctx.int_arg("guild_id"), {}).values())
+
+
+@route("GET", "/applications/{application_id}/guilds/{guild_id}/commands/{command_id}/permissions")
+def get_command_permissions(ctx: RequestContext) -> Any:
+    backend = ctx.backend
+    guild_id = ctx.int_arg("guild_id")
+    command_id = ctx.int_arg("command_id")
+    permissions = backend.get_command_permissions(guild_id, command_id)
+    # Discord 404s when a command's permissions are unchanged from the guild
+    # default (i.e. never customised) — discord.py surfaces that as NotFound.
+    if permissions is None:
+        raise errors.unknown_command_permissions()
+    return {
+        "id": str(command_id),
+        "application_id": ctx.args["application_id"],
+        "guild_id": str(guild_id),
+        "permissions": list(permissions),
+    }
