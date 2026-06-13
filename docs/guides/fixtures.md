@@ -103,10 +103,22 @@ async with simcord.run(bot, strict_sync=False) as env:
     ...
 ```
 
-### Overriding options with the fixture
+### Overriding options per test
 
-To pass options through the `simcord_env` fixture, drive `simcord.run` yourself in a small
-wrapper fixture for the tests that need it:
+Mark a test with `@pytest.mark.simcord(...)` and its keyword arguments are forwarded to
+`simcord.run`, so a single test can change its environment without a custom fixture:
+
+```python
+import pytest
+
+@pytest.mark.simcord(strict_sync=False)
+async def test_command_logic_in_isolation(simcord_env):
+    # this env auto-registers unsynced commands; other tests stay strict
+    ...
+```
+
+For an override shared by many tests, drive `simcord.run` yourself in a small wrapper fixture
+instead:
 
 ```python
 import pytest_asyncio
