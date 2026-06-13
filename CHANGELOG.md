@@ -4,6 +4,18 @@ This changelog is generated with [towncrier](https://towncrier.readthedocs.io/).
 
 <!-- towncrier release notes start -->
 
+## 0.5.0 (2026-06-13)
+
+### Features
+
+- Entity select menus are now fully supported. `MemberActor.select` accepts the handles a user could pick (`UserHandle`/`MemberActor`, `RoleHandle`, `ChannelHandle`) for user, role, channel and mentionable selects, building the resolved data so the bot's callback receives real `discord.Member`/`Role`/channel objects. Wrong handle kinds and out-of-range value counts fail with a `SetupError`. ([#12](https://github.com/SilentHacks/simcord/issues/12))
+- Added `Env.restart_bot()` to simulate a bot restart while the virtual world persists. It detaches the current bot, attaches a freshly built one, and replays the existing guilds so the new client's cache repopulates — letting tests prove that persistent views (`bot.add_view` in `setup_hook`) re-attach to messages they never saw created. ([#13](https://github.com/SilentHacks/simcord/issues/13))
+
+### Bug fixes
+
+- Passing the wrong handle kind to a typed slash-command option (e.g. a `RoleHandle` to a `USER` option) now fails with a clear `SetupError` at the call site, instead of resolving into the wrong bucket and failing deep inside discord.py. ([#14](https://github.com/SilentHacks/simcord/issues/14))
+
+
 ## 0.4.0 (2026-06-13)
 
 ### Features
