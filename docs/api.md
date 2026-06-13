@@ -48,6 +48,21 @@ Returned by the interaction verbs (`slash`, `context_menu`, `click`, `select`,
 
 ::: simcord.ResponseMessage
 
+## Assertions
+
+Runner-agnostic helpers whose failure messages print what the bot actually did. See
+[Errors & diagnostics → Assertions](guides/diagnostics.md#assertions).
+
+::: simcord.assert_sent
+
+::: simcord.assert_responded
+
+::: simcord.assert_message
+
+::: simcord.assert_error
+
+::: simcord.assert_no_errors
+
 ## Errors
 
 ::: simcord.BackendError

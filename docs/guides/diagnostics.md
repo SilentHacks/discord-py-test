@@ -50,6 +50,48 @@ async with simcord.run(bot, check_errors=False) as env:
 `ExceptionGroup` of everything captured (even a single error) and does nothing if there were
 none.
 
+## Assertions
+
+You can assert with plain `assert` on the [result and query objects](../api.md), but SimCord
+also ships a few helpers whose **failure messages show what the bot actually did** — so a red
+test explains itself. They're plain functions (no pytest required) importable from the top
+level:
+
+```python
+from simcord import assert_sent, assert_responded, assert_error
+
+await alice.send(channel, "!ping")
+assert_sent(channel, content="Pong!")           # the channel's last visible message
+
+result = await alice.slash(channel, "hello")
+assert_responded(result, contains="hi", ephemeral=True)   # the interaction's response
+```
+
+Each field (`content`, `contains`, `embed_title`, `ephemeral`) is checked only when you pass
+it. When an assertion fails, the message includes the real output — e.g. `assert_sent` prints
+the channel's recent history, and `assert_responded` prints whether the bot deferred or opened
+a modal instead:
+
+```
+AssertionError: last message did not match:
+  content: expected 'Pong!', got 'Pnog!'
+recent messages:
+  - 'Pnog!'
+```
+
+For errors, `assert_error` replaces the clunky `any(isinstance(e, ...) for e in env.errors)`
+idiom and unwraps discord.py's `CommandInvokeError.original` for you:
+
+```python
+env.inject_error("POST", "/channels/*/messages", status=403, code=50013)
+await alice.send(channel, "!post")
+assert_error(env, discord.Forbidden, code=50013)   # matches the wrapped original
+assert_no_errors(env)                               # the symmetric "ran cleanly" check
+```
+
+`assert_error` reads `env.errors`, which counts as inspecting them (see below), so it also
+satisfies the teardown guard.
+
 ## The transcript
 
 `env.transcript()` returns a human-readable, ordered record of everything that crossed
