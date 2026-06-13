@@ -18,6 +18,8 @@ Typical usage::
         assert channel.last_message.content == "Pong!"
 """
 
+from importlib.metadata import PackageNotFoundError, version
+
 from . import _dpy_internals
 
 _dpy_internals.verify()
@@ -32,7 +34,10 @@ from .env import Env, run  # noqa: E402
 from .http import RouteNotImplemented  # noqa: E402
 from .results import InteractionResult, ResponseMessage  # noqa: E402
 
-__version__ = "0.1.0"
+try:
+    __version__ = version("simcord")
+except PackageNotFoundError:  # running from a source checkout without dist metadata
+    __version__ = "0.0.0+unknown"
 
 __all__ = (
     "BackendError",
