@@ -267,6 +267,8 @@ class Env:
         # afterwards so the MESSAGE_UPDATE(s) this emits reach the bot's
         # listeners even when no loop timer fires during this window.
         self.backend.expire_due_polls()
+        # Scheduled events transition on wall-clock deadlines, like polls.
+        self.backend.activate_due_scheduled_events()
         await self.settle()
         remaining = float(seconds)
         while remaining > 0:

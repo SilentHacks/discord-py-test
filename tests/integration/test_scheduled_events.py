@@ -77,3 +77,33 @@ async def test_voice_channel_event(env, channel):
     )
     await env.settle()
     assert env.backend.get_guild(env.guild.id).scheduled_events[event.id].channel_id == voice.id
+
+
+async def test_event_auto_activates_on_advance_time(env):
+    start = env.backend.iso_after(60)
+    end = env.backend.iso_after(3600)
+    event = env.guild.create_scheduled_event(
+        "Soon", start_time=start, entity_type=3, location="Online", end_time=end
+    )
+    await env.settle()
+    assert env.backend.get_guild(env.guild.id).scheduled_events[event.id].status == 1
+
+    await env.advance_time(120)
+
+    assert env.backend.get_guild(env.guild.id).scheduled_events[event.id].status == 2
+    assert "GUILD_SCHEDULED_EVENT_UPDATE" in env.transcript()
+
+
+async def test_event_auto_completes_after_end(env):
+    event = env.guild.create_scheduled_event(
+        "Brief",
+        start_time=env.backend.iso_after(60),
+        entity_type=3,
+        location="Online",
+        end_time=env.backend.iso_after(120),
+    )
+    await env.settle()
+
+    await env.advance_time(300)
+
+    assert env.backend.get_guild(env.guild.id).scheduled_events[event.id].status == 3
