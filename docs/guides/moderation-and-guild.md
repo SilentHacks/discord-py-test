@@ -98,7 +98,10 @@ await alice.send(channel, "contains a badword")  # blocked — appears nowhere
 assert channel.history() == []
 ```
 
-Exempt roles and channels are honored; rules in a guild without auto-mod have zero effect.
+Keywords follow Discord's wildcard rules: a bare `badword` matches only as a whole word,
+while `*badword*` matches it as a substring anywhere (and `badword*` / `*badword` match as
+a prefix / suffix). Exempt roles and channels are honored; rules in a guild without auto-mod
+have zero effect.
 
 ## Channel kinds
 
@@ -110,3 +113,7 @@ env.guild.create_stage_channel("Town Hall")
 env.guild.create_category("Community")
 env.guild.create_forum_channel("help")
 ```
+
+These are test-setup constructs created directly through the builder; SimCord does
+not yet implement the bot-facing `guild.create_*_channel()` API path, so create
+the channels your bot needs up front rather than having the bot create them.

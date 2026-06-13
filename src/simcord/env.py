@@ -263,8 +263,11 @@ class Env:
         # the backend's virtual wall clock must advance in step with the loop's.
         self.backend.advance_clock(seconds)
         # Polls finalize on a wall-clock deadline rather than a loop timer, so
-        # fast-forwarding time must finalize any that just expired.
+        # fast-forwarding time must finalize any that just expired. Settle once
+        # afterwards so the MESSAGE_UPDATE(s) this emits reach the bot's
+        # listeners even when no loop timer fires during this window.
         self.backend.expire_due_polls()
+        await self.settle()
         remaining = float(seconds)
         while remaining > 0:
             next_timer = self._next_scheduled_timer()

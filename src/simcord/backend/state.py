@@ -673,10 +673,13 @@ class Backend:
 
     def expire_due_polls(self) -> None:
         """Finalize any polls whose expiry has passed (driven by the virtual clock)."""
-        now = self.now_iso()
+        now = datetime.datetime.fromisoformat(self.now_iso())
         for channel_messages in self.messages.values():
             for message in channel_messages.values():
-                if message.poll is not None and not message.poll.finalized and message.poll.expiry <= now:
+                poll = message.poll
+                if poll is None or poll.finalized:
+                    continue
+                if datetime.datetime.fromisoformat(poll.expiry) <= now:
                     self.expire_poll(message.channel_id, message.id)
 
     # ------------------------------------------------------- scheduled events
@@ -753,10 +756,16 @@ class Backend:
 
     def set_voice_state(
         self, guild_id: int, user_id: int, channel_id: int | None, **flags: Any
-    ) -> VoiceState:
-        """Upsert a member's voice state (or disconnect when ``channel_id`` is None)."""
+    ) -> VoiceState | None:
+        """Upsert a member's voice state (or disconnect when ``channel_id`` is None).
+
+        Disconnecting a member who is not connected is a no-op (no event), so a
+        stray ``leave_voice`` does not emit a spurious VOICE_STATE_UPDATE.
+        """
         guild = self.get_guild(guild_id)
         state = guild.voice_states.get(user_id)
+        if state is None and channel_id is None:
+            return None
         if state is None:
             state = VoiceState(
                 user_id=user_id,
@@ -978,10 +987,20 @@ class Backend:
 
     @staticmethod
     def _match_keyword(rule: AutoModRule, content: str) -> str | None:
-        lowered = content.lower()
+        """Match ``content`` against a keyword filter using Discord's wildcard rules.
+
+        A bare ``word`` matches only as a whole word (bounded by non-alphanumeric
+        characters); ``*`` is a wildcard, so ``word*`` is a prefix match, ``*word``
+        a suffix match and ``*word*`` a substring match anywhere — mirroring
+        Discord's keyword-filter semantics rather than a naive substring search.
+        """
         for keyword in rule.trigger_metadata.get("keyword_filter") or []:
-            bare = keyword.strip("*").lower()
-            if bare and bare in lowered:
+            bare = keyword.strip("*")
+            if not bare:
+                continue
+            left = "" if keyword.startswith("*") else r"(?<![A-Za-z0-9])"
+            right = "" if keyword.endswith("*") else r"(?![A-Za-z0-9])"
+            if re.search(f"{left}{re.escape(bare)}{right}", content, re.IGNORECASE):
                 return keyword
         return None
 
