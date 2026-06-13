@@ -93,6 +93,19 @@ def get_guild_channels(ctx: RequestContext) -> Any:
     return [dict(serializers.channel_payload(backend, backend.channels[cid])) for cid in guild.channel_ids]
 
 
+@route("GET", "/guilds/{guild_id}/members")
+def list_members(ctx: RequestContext) -> Any:
+    # The list-members endpoint discord.py's Guild.fetch_members pages through;
+    # member *search* by name is the gateway's REQUEST_GUILD_MEMBERS path
+    # (Guild.query_members), already served by the fake websocket.
+    backend = ctx.backend
+    guild = backend.get_guild(ctx.int_arg("guild_id"))
+    limit = int(ctx.params.get("limit", 1))
+    after = int(ctx.params.get("after", 0))
+    members = [m for m in sorted(guild.members.values(), key=lambda m: m.user_id) if m.user_id > after]
+    return [dict(serializers.member_payload(backend, guild, m)) for m in members[:limit]]
+
+
 @route("GET", "/guilds/{guild_id}/members/{user_id}")
 def get_member(ctx: RequestContext) -> Any:
     backend = ctx.backend

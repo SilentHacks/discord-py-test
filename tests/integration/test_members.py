@@ -76,3 +76,32 @@ async def test_role_hierarchy_enforced(env, channel):
         await guild.ban(guild.get_member(overlord.id))
     assert exc_info.value.code == 50013
     assert env.guild.get_ban(overlord) is None
+
+
+async def test_fetch_members_lists_everyone(env, alice):
+    bob = env.guild.add_member(env.create_user("bob"))
+    guild = env.bot.get_guild(env.guild.id)
+
+    members = [m async for m in guild.fetch_members(limit=None)]
+    ids = {m.id for m in members}
+    assert {alice.id, bob.id, env.bot.user.id} <= ids
+
+
+async def test_fetch_members_paginates(env, alice):
+    for i in range(5):
+        env.guild.add_member(env.create_user(f"user{i}"))
+    guild = env.bot.get_guild(env.guild.id)
+
+    # A small page size forces the MemberIterator to follow `after` cursors.
+    members = [m async for m in guild.fetch_members(limit=2)]
+    assert len(members) == 2
+
+
+async def test_query_members_by_name(env, alice):
+    # query_members searches over the gateway (REQUEST_GUILD_MEMBERS), which the
+    # fake websocket already answers — distinct from the REST list endpoint above.
+    env.guild.add_member(env.create_user("bob"))
+    guild = env.bot.get_guild(env.guild.id)
+
+    found = await guild.query_members("ali")
+    assert [m.name for m in found] == ["alice"]
