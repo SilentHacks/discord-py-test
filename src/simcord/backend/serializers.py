@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, cast
 
+from ..enums import ChannelType
 from .models import Channel, Guild, Member, Message, Role, User, Webhook
 
 if TYPE_CHECKING:
@@ -124,7 +125,7 @@ def channel_payload(backend: Backend, channel: Channel) -> channel_types.GuildCh
     }
     if channel.guild_id is not None:
         payload["guild_id"] = str(channel.guild_id)
-    if channel.type == 1:  # DM
+    if channel.type == ChannelType.DM:
         payload["recipients"] = [user_payload(backend.users[uid]) for uid in channel.recipient_ids]
         payload.pop("name")
         payload.pop("position")

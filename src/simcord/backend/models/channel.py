@@ -2,16 +2,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-# Discord channel types referenced by the backend
-PUBLIC_THREAD = 11
-PRIVATE_THREAD = 12
-THREAD_TYPES = (PUBLIC_THREAD, PRIVATE_THREAD)
+from ...enums import ChannelType
+
+THREAD_TYPES = (ChannelType.PUBLIC_THREAD, ChannelType.PRIVATE_THREAD)
 
 
 @dataclass
 class Overwrite:
     target_id: int
-    type: int  # 0 = role, 1 = member
+    type: int  # OverwriteType: ROLE or MEMBER
     allow: int = 0
     deny: int = 0
 

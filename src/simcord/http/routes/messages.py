@@ -5,13 +5,14 @@ from __future__ import annotations
 from typing import Any
 
 from ...backend import errors, serializers
+from ...enums import ChannelType
 from .._helpers import bot_message, message_response
 from ..router import RequestContext, route
 
 
 def _send_permissions(ctx: RequestContext, channel_id: int) -> None:
     channel = ctx.backend.get_channel(channel_id)
-    if channel.type == 1:  # DM channel
+    if channel.type == ChannelType.DM:
         # You cannot DM another bot; real Discord rejects this on send (50007).
         if any(ctx.backend.users[uid].bot for uid in channel.recipient_ids):
             raise errors.cannot_dm_bot()

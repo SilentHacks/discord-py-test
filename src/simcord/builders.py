@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any
 import discord
 
 from .backend.models import Channel, Guild, Overwrite, Role, User
+from .enums import OverwriteType
 from .results import to_discord_message
 
 if TYPE_CHECKING:
@@ -129,7 +130,7 @@ class GuildHandle:
             model_overwrites.append(
                 Overwrite(
                     target_id=target.id,
-                    type=0 if isinstance(target, RoleHandle) else 1,
+                    type=OverwriteType.ROLE if isinstance(target, RoleHandle) else OverwriteType.MEMBER,
                     allow=allow.value,
                     deny=deny.value,
                 )

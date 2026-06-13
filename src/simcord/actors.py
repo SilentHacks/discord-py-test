@@ -309,8 +309,14 @@ class MemberActor:
                 if custom_id in values:
                     components.append(
                         {
-                            "type": 1,
-                            "components": [{"type": 4, "custom_id": custom_id, "value": values[custom_id]}],
+                            "type": ComponentType.ACTION_ROW,
+                            "components": [
+                                {
+                                    "type": ComponentType.TEXT_INPUT,
+                                    "custom_id": custom_id,
+                                    "value": values[custom_id],
+                                }
+                            ],
                         }
                     )
         channel = ChannelHandle(

@@ -15,7 +15,7 @@ from typing import Any
 
 import discord
 
-from ..enums import AppCommandType
+from ..enums import AppCommandType, ChannelType, MessageType
 from . import errors, permissions, serializers
 from .cdn import CdnStore
 from .models import (
@@ -294,7 +294,7 @@ class Backend:
         guild_id: int | None,
         name: str | None,
         *,
-        type: int = 0,
+        type: int = ChannelType.TEXT,
         overwrites: list[Overwrite] | None = None,
         announce: bool = True,
         **fields: Any,
@@ -370,7 +370,7 @@ class Backend:
         channel_id = self.dm_channels.get(user_id)
         if channel_id is not None:
             return self.channels[channel_id]
-        channel = self.create_channel(None, None, type=1)
+        channel = self.create_channel(None, None, type=ChannelType.DM)
         channel.recipient_ids = [user_id]
         self.dm_channels[user_id] = channel.id
         return channel
@@ -381,7 +381,7 @@ class Backend:
         name: str,
         owner_id: int,
         *,
-        type: int = 11,
+        type: int = ChannelType.PUBLIC_THREAD,
         auto_archive_duration: int = 1440,
         message_id: int | None = None,
     ) -> Channel:
@@ -433,7 +433,7 @@ class Backend:
             author_id=author_id,
             content=content or "",
             timestamp=self.now_iso(),
-            type=19 if reference else 0,
+            type=MessageType.REPLY if reference else MessageType.DEFAULT,
             flags=flags,
             embeds=embeds or [],
             components=components or [],

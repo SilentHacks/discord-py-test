@@ -13,6 +13,7 @@ import datetime
 
 import discord
 
+from ..enums import OverwriteType
 from .models import Channel, Guild
 
 _ALL = discord.Permissions.all().value
@@ -52,12 +53,12 @@ def compute(guild: Guild, user_id: int, channel: Channel | None = None) -> int:
         allow = deny = 0
         for role_id in member.role_ids:
             overwrite = by_target.get(role_id)
-            if overwrite is not None and overwrite.type == 0:
+            if overwrite is not None and overwrite.type == OverwriteType.ROLE:
                 allow |= overwrite.allow
                 deny |= overwrite.deny
         base = (base & ~deny) | allow
         member_overwrite = by_target.get(user_id)
-        if member_overwrite is not None and member_overwrite.type == 1:
+        if member_overwrite is not None and member_overwrite.type == OverwriteType.MEMBER:
             base = (base & ~member_overwrite.deny) | member_overwrite.allow
 
     if _is_timed_out(guild, user_id):

@@ -54,6 +54,29 @@ class ComponentType(IntEnum):
     TEXT_INPUT = 4
 
 
+class ChannelType(IntEnum):
+    """Channel types (the subset the backend models)."""
+
+    TEXT = 0
+    DM = 1
+    PUBLIC_THREAD = 11
+    PRIVATE_THREAD = 12
+
+
+class MessageType(IntEnum):
+    """Message types."""
+
+    DEFAULT = 0
+    REPLY = 19
+
+
+class OverwriteType(IntEnum):
+    """Permission-overwrite target types."""
+
+    ROLE = 0
+    MEMBER = 1
+
+
 class CallbackType(IntEnum):
     """Interaction-response callback types."""
 
