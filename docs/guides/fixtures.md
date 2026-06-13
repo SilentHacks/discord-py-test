@@ -103,6 +103,16 @@ async with simcord.run(bot, strict_sync=False) as env:
     ...
 ```
 
+!!! tip "Bot syncs to a hardcoded guild id?"
+    Some bots pin `tree.sync(guild=discord.Object(id=...))` to a specific guild id. Pass that
+    same id to `create_guild` so the synced commands land in a guild that exists, and
+    `strict_sync` can stay on:
+
+    ```python
+    MY_GUILD = 123456789012345678  # the id the bot syncs to
+    guild = env.create_guild(id=MY_GUILD)
+    ```
+
 ### Overriding options per test
 
 Mark a test with `@pytest.mark.simcord(...)` and its keyword arguments are forwarded to
