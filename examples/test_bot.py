@@ -1,6 +1,7 @@
 """Example test suite using the bundled pytest plugin's `simcord_env` fixture."""
 
 import discord
+import pytest
 
 
 async def test_ping(simcord_env):
@@ -28,3 +29,14 @@ async def test_ban_requires_permission(simcord_env):
     assert allowed.ephemeral
     assert allowed.response.content == f"Banned {target.mention}: spam"
     assert guild.get_ban(target) is not None
+
+
+async def test_env_is_strict_by_default(simcord_env):
+    assert simcord_env.strict_sync is True
+
+
+@pytest.mark.simcord(strict_sync=False)
+async def test_marker_forwards_options_to_run(simcord_env):
+    # The marker's kwargs reach simcord.run(), so per-test config needs no
+    # custom fixture.
+    assert simcord_env.strict_sync is False

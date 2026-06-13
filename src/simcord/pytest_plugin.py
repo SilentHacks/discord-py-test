@@ -16,6 +16,13 @@ Define a ``simcord_bot`` fixture in your conftest that builds your bot, and the
         channel = simcord_env.create_guild().create_text_channel("general")
         ...
 
+Per-test options for the environment go through the ``simcord`` marker, whose
+keyword arguments are forwarded to :func:`simcord.run`::
+
+    @pytest.mark.simcord(strict_sync=False)
+    async def test_unsynced_command(simcord_env):
+        ...
+
 Requires the ``pytest`` extra (``pip install simcord[pytest]``).
 """
 
@@ -29,6 +36,13 @@ try:
     import pytest_asyncio
 except ImportError:  # pragma: no cover - plugin is inert without the extra
     pytest_asyncio = None
+
+
+def pytest_configure(config):
+    config.addinivalue_line(
+        "markers",
+        "simcord(**options): keyword options forwarded to simcord.run() for the simcord_env fixture",
+    )
 
 
 @pytest.hookimpl(wrapper=True)
@@ -54,6 +68,8 @@ def simcord_bot():
 if pytest_asyncio is not None:
 
     @pytest_asyncio.fixture
-    async def simcord_env(simcord_bot):
-        async with run(simcord_bot) as env:
+    async def simcord_env(simcord_bot, request):
+        marker = request.node.get_closest_marker("simcord")
+        options = marker.kwargs if marker else {}
+        async with run(simcord_bot, **options) as env:
             yield env
