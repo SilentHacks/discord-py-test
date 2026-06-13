@@ -49,6 +49,21 @@ async def test_poll_expires_on_advance_time(env, channel):
     assert env.backend.get_message(channel.id, message.id).poll.finalized
 
 
+async def test_poll_finalize_event_reaches_bot(env, channel):
+    edited = []
+
+    async def on_message_edit(_before, after):
+        edited.append(after.id)
+
+    env.bot.add_listener(on_message_edit, "on_message_edit")
+    ch = env.bot.get_channel(channel.id)
+    message = await ch.send(poll=_make_poll())
+    await env.settle()
+
+    await env.advance_time(3700)  # the MESSAGE_UPDATE from finalize must reach the bot
+    assert message.id in edited
+
+
 async def test_end_poll_route(env, channel):
     ch = env.bot.get_channel(channel.id)
     message = await ch.send(poll=_make_poll())

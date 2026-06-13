@@ -1,3 +1,7 @@
+import discord
+import pytest
+
+
 async def test_actor_joins_voice(env, channel, alice):
     voice = env.guild.create_voice_channel("General Voice")
     await env.settle()
@@ -49,6 +53,37 @@ async def test_move_member_between_channels(env, channel, alice):
     # The move was recorded in the audit log.
     moves = [e for e in env.guild.audit_log() if e.action_type == 26]
     assert moves
+
+
+async def test_move_disconnected_member_errors(env, channel, alice):
+    voice = env.guild.create_voice_channel("General Voice")
+    await env.settle()
+
+    guild = env.bot.get_guild(env.guild.id)
+    with pytest.raises(discord.HTTPException) as exc:
+        await guild.get_member(alice.id).move_to(guild.get_channel(voice.id))
+    assert exc.value.code == 40032
+
+
+async def test_leave_voice_when_not_connected_is_noop(env, channel, alice):
+    await alice.leave_voice()
+
+    assert "VOICE_STATE_UPDATE" not in env.transcript()
+    assert alice.id not in env.guild.voice_states()
+
+
+async def test_server_mute_recorded_in_audit_log(env, channel, alice):
+    voice = env.guild.create_voice_channel("General Voice")
+    await env.settle()
+    await alice.join_voice(voice)
+
+    guild = env.bot.get_guild(env.guild.id)
+    await guild.get_member(alice.id).edit(mute=True)
+    await env.settle()
+
+    updates = [e for e in env.guild.audit_log() if e.action_type == 24]  # MEMBER_UPDATE
+    assert updates
+    assert any(c["key"] == "mute" and c["new_value"] is True for c in updates[-1].changes)
 
 
 async def test_sample_bot_voice_log_listener(env, alice):

@@ -1,16 +1,18 @@
 import discord
 
 
-def _keyword_rule_kwargs():
+def _rule_kwargs(keywords):
     return dict(
         name="No badwords",
         event_type=discord.AutoModRuleEventType.message_send,
-        trigger=discord.AutoModTrigger(
-            type=discord.AutoModRuleTriggerType.keyword, keyword_filter=["badword"]
-        ),
+        trigger=discord.AutoModTrigger(type=discord.AutoModRuleTriggerType.keyword, keyword_filter=keywords),
         actions=[discord.AutoModRuleAction(custom_message="blocked")],
         enabled=True,
     )
+
+
+def _keyword_rule_kwargs():
+    return _rule_kwargs(["badword"])
 
 
 async def test_rule_crud(env, channel):
@@ -50,3 +52,27 @@ async def test_clean_message_passes(env, channel, alice):
     await alice.send(channel, "a perfectly fine message")
     await env.settle()
     assert len(channel.history()) == 1
+
+
+async def test_bare_keyword_matches_whole_word_only(env, channel, alice):
+    guild = env.bot.get_guild(env.guild.id)
+    await guild.create_automod_rule(**_rule_kwargs(["spam"]))
+    await env.settle()
+
+    await alice.send(channel, "delicious spammer recipe")  # substring, not a whole word
+    await env.settle()
+    assert len(channel.history()) == 1  # not blocked
+
+    await alice.send(channel, "this is spam")  # whole word: blocked
+    await env.settle()
+    assert len(channel.history()) == 1  # history unchanged — second message dropped
+
+
+async def test_wildcard_keyword_matches_substring(env, channel, alice):
+    guild = env.bot.get_guild(env.guild.id)
+    await guild.create_automod_rule(**_rule_kwargs(["*spam*"]))
+    await env.settle()
+
+    await alice.send(channel, "delicious spammer recipe")  # substring match via wildcard
+    await env.settle()
+    assert channel.history() == []

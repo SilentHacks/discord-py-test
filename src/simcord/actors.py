@@ -357,7 +357,8 @@ class MemberActor:
         """Cast (or move) this user's vote to ``answer`` (a 1-based answer id)."""
         backend = self._env.backend
         stored = backend.get_message(_channel_id_of(message), message.id)
-        backend.require_permissions(self.guild.id, self.id, stored.channel_id, "view_channel")
+        # require_permissions enforces view_channel whenever a channel id is passed.
+        backend.require_permissions(self.guild.id, self.id, stored.channel_id)
         backend.add_poll_vote(stored.channel_id, stored.id, answer, self.id)
         await self._env.settle()
 
@@ -365,6 +366,7 @@ class MemberActor:
         """Retract this user's vote for ``answer``."""
         backend = self._env.backend
         stored = backend.get_message(_channel_id_of(message), message.id)
+        backend.require_permissions(self.guild.id, self.id, stored.channel_id)
         backend.remove_poll_vote(stored.channel_id, stored.id, answer, self.id)
         await self._env.settle()
 

@@ -102,3 +102,7 @@ def unknown_scheduled_event() -> BackendError:
 
 def unknown_auto_mod_rule() -> BackendError:
     return BackendError(404, 10000, "Unknown Auto Moderation Rule")
+
+
+def target_not_connected_to_voice() -> BackendError:
+    return BackendError(400, 40032, "Target user is not connected to voice")

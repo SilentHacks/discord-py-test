@@ -38,6 +38,7 @@ def edit_member(ctx: RequestContext) -> Any:
     changes: dict[str, Any] = {}
     log: list[tuple[int, dict[str, Any], dict[str, Any]]] = []  # (action_type, changes, options)
     old_nick, old_timeout, old_roles = member.nick, member.timed_out_until, list(member.role_ids)
+    old_mute, old_deaf = member.mute, member.deaf
     if "nick" in body:
         perm = "change_nickname" if user_id == bot_id else "manage_nicknames"
         ctx.require_guild_permissions(guild_id, perm)
@@ -64,6 +65,8 @@ def edit_member(ctx: RequestContext) -> Any:
     # Voice channel move/disconnect (server-side); reflect server mute/deaf too.
     if "channel_id" in body:
         target_channel = body["channel_id"]
+        if user_id not in guild.voice_states:
+            raise errors.target_not_connected_to_voice()
         if target_channel is None:
             backend.set_voice_state(guild_id, user_id, None)
             log.append((AuditLogAction.MEMBER_DISCONNECT, {}, {}))
@@ -88,6 +91,10 @@ def edit_member(ctx: RequestContext) -> Any:
                 "new_value": member.timed_out_until,
             }
         )
+    if "mute" in changes and old_mute != member.mute:
+        member_changes.append({"key": "mute", "old_value": old_mute, "new_value": member.mute})
+    if "deaf" in changes and old_deaf != member.deaf:
+        member_changes.append({"key": "deaf", "old_value": old_deaf, "new_value": member.deaf})
     if member_changes:
         log.append((AuditLogAction.MEMBER_UPDATE, {"_changes": member_changes}, {}))
     if "role_ids" in changes:
