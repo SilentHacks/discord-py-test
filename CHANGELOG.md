@@ -4,6 +4,14 @@ This changelog is generated with [towncrier](https://towncrier.readthedocs.io/).
 
 <!-- towncrier release notes start -->
 
+## 0.4.0 (2026-06-13)
+
+### Features
+
+- Added assertion helpers — `assert_sent`, `assert_responded`, `assert_message`, `assert_error` and `assert_no_errors` — whose failure messages print what the bot actually did (the channel's recent history, the interaction result, the captured errors).
+- `Env.create_guild` now accepts an optional `id=` so a guild can be pinned to a known id — e.g. to match a bot that syncs its commands to a hardcoded guild id, keeping `strict_sync` on.
+
+
 ## 0.3.0 (2026-06-13)
 
 ### Features

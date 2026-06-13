@@ -1,1 +1,0 @@
-Added assertion helpers — `assert_sent`, `assert_responded`, `assert_message`, `assert_error` and `assert_no_errors` — whose failure messages print what the bot actually did (the channel's recent history, the interaction result, the captured errors).
