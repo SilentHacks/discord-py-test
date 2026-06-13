@@ -308,7 +308,7 @@ class MemberActor:
             self._check_select_handles(menu_type, values)
             resolved: dict[str, dict[str, Any]] = {}
             for value in values:
-                _interactions.resolve_handle(self._env.backend, value, resolved)
+                _interactions.resolve_handle(self._env.backend, value, resolved, user_id=self.id)
             data["values"] = [str(value.id) for value in values]
             data["resolved"] = resolved
         return await self._component_interaction(stored, data)

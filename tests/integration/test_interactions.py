@@ -85,6 +85,49 @@ async def test_cannot_click_missing_button(env, channel, alice):
         await alice.click(result.response.message, label="Nope")
 
 
+async def test_user_select_resolves_members(env, channel, alice):
+    bob = env.guild.add_member(env.create_user("bob"))
+    result = await alice.slash(channel, "assign")
+
+    picked = await alice.select(result.response.message, [alice, bob], custom_id="who")
+
+    assert picked.response.content == "Picked alice, bob"
+
+
+async def test_role_select_resolves_role(env, channel, alice):
+    role = env.guild.create_role("Helper")
+    result = await alice.slash(channel, "assign")
+
+    picked = await alice.select(result.response.message, [role], custom_id="role")
+
+    assert picked.response.content == "Role Helper"
+
+
+async def test_channel_select_resolves_channel(env, channel, alice):
+    other = env.guild.create_text_channel("other")
+    result = await alice.slash(channel, "assign")
+
+    picked = await alice.select(result.response.message, [other], custom_id="chan")
+
+    assert picked.response.content == "Channel other"
+
+
+async def test_select_wrong_handle_type_rejected(env, channel, alice):
+    role = env.guild.create_role("Helper")
+    result = await alice.slash(channel, "assign")
+
+    with pytest.raises(simcord.SetupError, match="expects"):
+        await alice.select(result.response.message, [role], custom_id="who")
+
+
+async def test_entity_select_respects_max_values(env, channel, alice):
+    extras = [env.guild.add_member(env.create_user(f"u{i}")) for i in range(3)]
+    result = await alice.slash(channel, "assign")
+
+    with pytest.raises(simcord.SetupError, match="between 1 and 2"):
+        await alice.select(result.response.message, [alice, *extras], custom_id="who")
+
+
 async def test_unsynced_command_is_caught():
     bot = commands.Bot(command_prefix="!", intents=discord.Intents.default())
 
