@@ -817,6 +817,33 @@ class Backend:
         del guild.scheduled_events[event_id]
         self.emit("GUILD_SCHEDULED_EVENT_DELETE", serializers.scheduled_event_payload(self, event))
 
+    def activate_due_scheduled_events(self) -> None:
+        """Auto-transition scheduled events whose start/end times have passed.
+
+        1 (scheduled) -> 2 (active) at the start time, then 2 -> 3 (completed)
+        at the end time (when one is set) — Discord's automatic lifecycle,
+        driven by the virtual clock so ``advance_time`` carries events forward
+        like real time. Manual status edits via ``PATCH`` still work too.
+        """
+        now = datetime.datetime.fromisoformat(self.now_iso())
+        for guild in list(self.guilds.values()):
+            for event in list(guild.scheduled_events.values()):
+                if event.status == 1 and self._event_time_passed(event.scheduled_start_time, now):
+                    self.edit_scheduled_event(guild.id, event.id, {"status": 2})
+                if (
+                    event.status == 2
+                    and event.scheduled_end_time is not None
+                    and self._event_time_passed(event.scheduled_end_time, now)
+                ):
+                    self.edit_scheduled_event(guild.id, event.id, {"status": 3})
+
+    @staticmethod
+    def _event_time_passed(iso: str, now: datetime.datetime) -> bool:
+        moment = datetime.datetime.fromisoformat(iso)
+        if moment.tzinfo is None:
+            moment = moment.replace(tzinfo=datetime.UTC)
+        return moment <= now
+
     def set_scheduled_event_subscription(
         self, guild_id: int, event_id: int, user_id: int, subscribed: bool
     ) -> None:
