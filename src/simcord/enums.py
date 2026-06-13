@@ -55,7 +55,12 @@ class ComponentType(IntEnum):
 
 
 class ChannelType(IntEnum):
-    """Channel types (the subset the backend models)."""
+    """Channel types (the subset the backend models).
+
+    Partial by design — add members here as the backend grows to support more
+    channel kinds; ``discord.ChannelType`` is the full reference. Do not fall
+    back to bare integer literals for an unlisted type.
+    """
 
     TEXT = 0
     DM = 1

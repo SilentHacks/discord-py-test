@@ -6,6 +6,7 @@ from typing import Any
 
 from ...backend import serializers
 from ...backend.models import Overwrite
+from ...enums import OverwriteType
 from ..router import RequestContext, route
 
 
@@ -25,7 +26,7 @@ def edit_channel(ctx: RequestContext) -> Any:
         overwrites = [
             Overwrite(
                 target_id=int(o["id"]),
-                type=int(o["type"]),
+                type=OverwriteType(int(o["type"])),
                 allow=int(o.get("allow", 0)),
                 deny=int(o.get("deny", 0)),
             )
@@ -52,7 +53,7 @@ def edit_overwrite(ctx: RequestContext) -> Any:
         channel.id,
         Overwrite(
             target_id=ctx.int_arg("target_id"),
-            type=int(body["type"]),
+            type=OverwriteType(int(body["type"])),
             allow=int(body.get("allow", 0)),
             deny=int(body.get("deny", 0)),
         ),

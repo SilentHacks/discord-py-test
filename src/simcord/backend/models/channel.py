@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from ...enums import ChannelType
+from ...enums import ChannelType, OverwriteType
 
 THREAD_TYPES = (ChannelType.PUBLIC_THREAD, ChannelType.PRIVATE_THREAD)
 
@@ -10,7 +10,7 @@ THREAD_TYPES = (ChannelType.PUBLIC_THREAD, ChannelType.PRIVATE_THREAD)
 @dataclass
 class Overwrite:
     target_id: int
-    type: int  # OverwriteType: ROLE or MEMBER
+    type: OverwriteType  # ROLE or MEMBER
     allow: int = 0
     deny: int = 0
 

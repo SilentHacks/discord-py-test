@@ -6,6 +6,7 @@ from hypothesis import strategies as st
 
 from simcord.backend import permissions
 from simcord.backend.models import Channel, Guild, Member, Overwrite, Role
+from simcord.enums import OverwriteType
 
 ALL = discord.Permissions.all().value
 ADMIN = discord.Permissions.administrator.flag
@@ -35,7 +36,10 @@ def test_administrator_bypasses_overwrites(everyone, allow, deny):
     guild.roles[200] = Role(id=200, name="admin", permissions=ADMIN)
     guild.members[2] = Member(user_id=2, role_ids=[200])
     channel = Channel(
-        id=300, type=0, guild_id=100, overwrites=[Overwrite(target_id=100, type=0, allow=allow, deny=deny)]
+        id=300,
+        type=0,
+        guild_id=100,
+        overwrites=[Overwrite(target_id=100, type=OverwriteType.ROLE, allow=allow, deny=deny)],
     )
     assert permissions.compute(guild, 2, channel) == ALL
 
@@ -59,8 +63,8 @@ def test_member_overwrite_wins_over_role_overwrite(everyone):
         type=0,
         guild_id=100,
         overwrites=[
-            Overwrite(target_id=100, type=0, deny=SEND),  # @everyone: no sending
-            Overwrite(target_id=2, type=1, allow=SEND),  # but this member may
+            Overwrite(target_id=100, type=OverwriteType.ROLE, deny=SEND),  # @everyone: no sending
+            Overwrite(target_id=2, type=OverwriteType.MEMBER, allow=SEND),  # but this member may
         ],
     )
     assert permissions.compute(guild, 2, channel) & SEND
