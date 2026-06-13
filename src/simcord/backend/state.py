@@ -84,6 +84,8 @@ class Backend:
         ] = {}  # scope -> (name, type) -> command
         self.interactions: dict[int, Interaction] = {}
         self.interaction_tokens: dict[str, int] = {}
+        # Per-(guild, command) application-command permission overrides.
+        self.command_permissions: dict[tuple[int, int], list[dict[str, Any]]] = {}
         self.cdn = CdnStore()
         self.subscribers: list[EventListener] = []
         self.http_log: list[tuple[str, str, dict[str, Any] | None]] = []
@@ -1176,6 +1178,20 @@ class Backend:
             registered[(cmd["name"], cmd["type"])] = cmd
         self.commands[guild_id] = registered
         return list(registered.values())
+
+    def set_command_permissions(
+        self, guild_id: int, command_id: int, permissions: list[dict[str, Any]]
+    ) -> None:
+        """Seed a command's per-guild permission overrides (omnipotent setup).
+
+        Real Discord only lets a *user* (OAuth2 bearer) set these, so there is no
+        bot-driven route — tests arrange them, then the bot reads them back via
+        ``AppCommand.fetch_permissions``.
+        """
+        self.command_permissions[(guild_id, command_id)] = list(permissions)
+
+    def get_command_permissions(self, guild_id: int, command_id: int) -> list[dict[str, Any]] | None:
+        return self.command_permissions.get((guild_id, command_id))
 
     def find_command(
         self, name: str, guild_id: int | None, type: int = AppCommandType.CHAT_INPUT

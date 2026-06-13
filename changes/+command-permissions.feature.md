@@ -1,0 +1,1 @@
+Added application command permission fetching: `AppCommand.fetch_permissions(guild)` reads per-guild overrides seeded by `GuildHandle.set_command_permissions(...)`, and returns `NotFound` when a command is unchanged from the guild default.

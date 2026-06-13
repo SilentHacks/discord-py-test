@@ -220,6 +220,31 @@ class GuildHandle:
             self.id, name, self._env.backend.bot_user.id, description=description, tags=tags
         )
 
+    def set_command_permissions(
+        self, command: Any, permissions: dict[RoleHandle | ChannelHandle | UserHandle | MemberActor, bool]
+    ) -> None:
+        """Set an app command's per-guild permission overrides (omnipotent setup).
+
+        ``command`` is a command id or any object with an ``id`` (e.g. a fetched
+        ``discord.app_commands.AppCommand``); ``permissions`` maps role/user/
+        channel handles to allow (``True``) / deny (``False``). The bot then
+        reads these back via ``AppCommand.fetch_permissions``.
+        """
+        command_id = command if isinstance(command, int) else command.id
+        entries = [
+            {
+                "id": str(target.id),
+                "type": 1
+                if isinstance(target, RoleHandle)
+                else 3
+                if isinstance(target, ChannelHandle)
+                else 2,
+                "permission": bool(allowed),
+            }
+            for target, allowed in permissions.items()
+        ]
+        self._env.backend.set_command_permissions(self.id, command_id, entries)
+
     def audit_log(self) -> list[AuditLogEntry]:
         """The guild's recorded audit-log entries, oldest first."""
         return list(self._guild.audit_log_entries)
