@@ -33,6 +33,7 @@ from .models import (
     Reaction,
     Role,
     ScheduledEvent,
+    StageInstance,
     Sticker,
     ThreadMetadata,
     User,
@@ -79,6 +80,8 @@ class Backend:
         self.webhook_tokens: dict[str, int] = {}
         self.dm_channels: dict[int, int] = {}  # user id -> channel id
         self.invites: dict[str, Invite] = {}  # code -> invite
+        self.application_emojis: dict[int, GuildEmoji] = {}  # app-owned emojis (no guild)
+        self.stage_instances: dict[int, StageInstance] = {}  # keyed by stage channel id
         self.commands: dict[
             int | None, dict[tuple[str, int], dict[str, Any]]
         ] = {}  # scope -> (name, type) -> command
@@ -222,8 +225,30 @@ class Backend:
         if user_id not in guild.members:
             raise errors.unknown_member()
         del guild.members[user_id]
+        # Leaving the guild leaves every thread in it, so thread member_count and
+        # the thread-member listings stay correct after a kick/ban/prune.
+        for thread_id in guild.thread_ids:
+            thread = self.channels.get(thread_id)
+            if thread is not None:
+                thread.thread_members.pop(user_id, None)
         self.emit(
             "GUILD_MEMBER_REMOVE",
+            {"guild_id": str(guild_id), "user": serializers.user_payload(self.get_user(user_id))},
+        )
+
+    def apply_ban(self, guild_id: int, user_id: int, reason: str | None) -> None:
+        """Record a ban, evict the member if present, and announce GUILD_BAN_ADD.
+
+        The single source of truth for the ban mutation, shared by the single and
+        bulk ban routes. Audit logging stays in the route layer (the API-call
+        path), like every other moderation action.
+        """
+        guild = self.get_guild(guild_id)
+        guild.bans[user_id] = reason
+        if user_id in guild.members:
+            self.remove_member(guild_id, user_id)
+        self.emit(
+            "GUILD_BAN_ADD",
             {"guild_id": str(guild_id), "user": serializers.user_payload(self.get_user(user_id))},
         )
 
@@ -349,6 +374,10 @@ class Backend:
 
     def delete_channel(self, channel_id: int) -> None:
         channel = self.get_channel(channel_id)
+        # Deleting a stage channel closes any live stage instance on it (firing
+        # STAGE_INSTANCE_DELETE) so it does not outlive its channel.
+        if channel_id in self.stage_instances:
+            self.delete_stage_instance(channel_id)
         payload = serializers.channel_payload(self, channel)
         del self.channels[channel_id]
         self.messages.pop(channel_id, None)
@@ -362,10 +391,16 @@ class Backend:
 
     def announce_channel_update(self, channel_id: int) -> None:
         channel = self.get_channel(channel_id)
-        self.emit("CHANNEL_UPDATE", serializers.channel_payload(self, channel))
+        event = "THREAD_UPDATE" if channel.is_thread else "CHANNEL_UPDATE"
+        self.emit(event, serializers.channel_payload(self, channel))
 
     def edit_channel(
-        self, channel_id: int, changes: Mapping[str, Any], *, overwrites: list[Overwrite] | None = None
+        self,
+        channel_id: int,
+        changes: Mapping[str, Any],
+        *,
+        overwrites: list[Overwrite] | None = None,
+        thread_metadata: Mapping[str, Any] | None = None,
     ) -> Channel:
         """Apply field/overwrite changes to a channel and announce the update."""
         channel = self.get_channel(channel_id)
@@ -373,8 +408,58 @@ class Backend:
             setattr(channel, attr, value)
         if overwrites is not None:
             channel.overwrites = overwrites
+        if thread_metadata and channel.thread_metadata is not None:
+            for attr, value in thread_metadata.items():
+                setattr(channel.thread_metadata, attr, value)
         self.announce_channel_update(channel.id)
         return channel
+
+    # ---------------------------------------------------------- thread members
+
+    def get_thread(self, channel_id: int) -> Channel:
+        """Fetch a channel that must be a thread, else fail like real Discord (50024)."""
+        channel = self.get_channel(channel_id)
+        if not channel.is_thread:
+            raise errors.cannot_execute_on_channel_type()
+        return channel
+
+    def add_thread_member(self, thread_id: int, user_id: int) -> Channel:
+        thread = self.get_thread(thread_id)
+        if user_id not in thread.thread_members:
+            thread.thread_members[user_id] = self.now_iso()
+            payload = dict(serializers.thread_payload(self, thread))
+            payload["added_members"] = [serializers.thread_member_payload(thread, user_id)]
+            self.emit("THREAD_MEMBERS_UPDATE", payload)
+        return thread
+
+    def remove_thread_member(self, thread_id: int, user_id: int) -> Channel:
+        thread = self.get_thread(thread_id)
+        if thread.thread_members.pop(user_id, None) is not None:
+            payload = dict(serializers.thread_payload(self, thread))
+            payload["removed_member_ids"] = [str(user_id)]
+            self.emit("THREAD_MEMBERS_UPDATE", payload)
+        return thread
+
+    def active_threads(self, guild_id: int) -> list[Channel]:
+        guild = self.get_guild(guild_id)
+        return [
+            t
+            for tid in guild.thread_ids
+            if (t := self.channels.get(tid)) is not None
+            and t.thread_metadata is not None
+            and not t.thread_metadata.archived
+        ]
+
+    def archived_threads(self, channel_id: int, *, private: bool) -> list[Channel]:
+        kind = ChannelType.PRIVATE_THREAD if private else ChannelType.PUBLIC_THREAD
+        return [
+            t
+            for t in self.channels.values()
+            if t.parent_id == channel_id
+            and t.type == kind
+            and t.thread_metadata is not None
+            and t.thread_metadata.archived
+        ]
 
     def set_overwrite(self, channel_id: int, overwrite: Overwrite) -> None:
         """Add or replace a single permission overwrite and announce the update."""
@@ -425,6 +510,7 @@ class Backend:
                 auto_archive_duration=auto_archive_duration, archive_timestamp=now, create_timestamp=now
             ),
         )
+        thread.thread_members[owner_id] = now
         self.channels[thread.id] = thread
         self.messages.setdefault(thread.id, {})
         guild.thread_ids.append(thread.id)
@@ -520,6 +606,19 @@ class Backend:
         if "flags" in fields and fields["flags"] is not None:
             message.flags = int(fields["flags"])
         message.edited_timestamp = self.now_iso()
+        self.emit("MESSAGE_UPDATE", dict(serializers.message_payload(self, message)))
+        return message
+
+    #: discord.MessageFlags.crossposted — set when an announcement is published.
+    CROSSPOSTED_FLAG = 1 << 1
+
+    def crosspost_message(self, channel_id: int, message_id: int) -> Message:
+        """Publish an announcement message: set the crossposted flag, announce it."""
+        message = self.get_message(channel_id, message_id)
+        if message.flags & self.CROSSPOSTED_FLAG:
+            # Real Discord rejects re-publishing an already-crossposted message.
+            raise errors.already_crossposted()
+        message.flags |= self.CROSSPOSTED_FLAG
         self.emit("MESSAGE_UPDATE", dict(serializers.message_payload(self, message)))
         return message
 
@@ -983,6 +1082,69 @@ class Backend:
                 "emojis": [serializers.guild_emoji_payload(self, e) for e in guild.emojis.values()],
             },
         )
+
+    # --------------------------------------------------- application emojis
+    # Application-owned emojis are not scoped to a guild and are not announced
+    # over the gateway — they only exist via the REST API a bot polls.
+
+    def create_application_emoji(self, name: str, *, animated: bool = False) -> GuildEmoji:
+        emoji = GuildEmoji(id=self.snowflake(), name=name, user_id=self.bot_user.id, animated=animated)
+        self.application_emojis[emoji.id] = emoji
+        return emoji
+
+    def get_application_emoji(self, emoji_id: int) -> GuildEmoji:
+        emoji = self.application_emojis.get(emoji_id)
+        if emoji is None:
+            raise errors.unknown_emoji()
+        return emoji
+
+    def edit_application_emoji(self, emoji_id: int, name: str | None) -> GuildEmoji:
+        emoji = self.get_application_emoji(emoji_id)
+        if name is not None:  # discord.py omits unchanged fields (e.g. a roles-only edit)
+            emoji.name = name
+        return emoji
+
+    def delete_application_emoji(self, emoji_id: int) -> None:
+        self.get_application_emoji(emoji_id)
+        del self.application_emojis[emoji_id]
+
+    # ------------------------------------------------------- stage instances
+
+    def create_stage_instance(self, channel_id: int, topic: str, *, privacy_level: int = 2) -> StageInstance:
+        channel = self.get_channel(channel_id)
+        if channel.type != ChannelType.STAGE_VOICE:
+            raise errors.cannot_execute_on_channel_type()
+        if channel_id in self.stage_instances:
+            # One live instance per stage channel; real Discord 400s a second open.
+            raise errors.invalid_form_body("A stage instance already exists for this channel")
+        instance = StageInstance(
+            id=self.snowflake(),
+            guild_id=channel.guild_id,  # type: ignore[arg-type]
+            channel_id=channel_id,
+            topic=topic,
+            privacy_level=privacy_level,
+        )
+        self.stage_instances[channel_id] = instance
+        self.emit("STAGE_INSTANCE_CREATE", serializers.stage_instance_payload(instance))
+        return instance
+
+    def get_stage_instance(self, channel_id: int) -> StageInstance:
+        instance = self.stage_instances.get(channel_id)
+        if instance is None:
+            raise errors.unknown_channel()
+        return instance
+
+    def edit_stage_instance(self, channel_id: int, changes: Mapping[str, Any]) -> StageInstance:
+        instance = self.get_stage_instance(channel_id)
+        for attr, value in changes.items():
+            setattr(instance, attr, value)
+        self.emit("STAGE_INSTANCE_UPDATE", serializers.stage_instance_payload(instance))
+        return instance
+
+    def delete_stage_instance(self, channel_id: int) -> None:
+        instance = self.get_stage_instance(channel_id)
+        del self.stage_instances[channel_id]
+        self.emit("STAGE_INSTANCE_DELETE", serializers.stage_instance_payload(instance))
 
     def create_sticker(
         self, guild_id: int, name: str, user_id: int, *, description: str | None = None, tags: str = ""

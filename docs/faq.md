@@ -81,11 +81,11 @@ the [parity matrix](parity-matrix.md) for what's implemented, and
 [open a parity-gap issue](https://github.com/SilentHacks/simcord/issues/new?template=parity-gap.md)
 for what you need.
 
-## Can I run more than one bot in a test?
+## Does SimCord simulate sharding or rate limits?
 
-Not yet — an `Env` currently drives a single bot (the backend can broadcast to multiple
-clients, but the multi-bot driver isn't implemented). Sharding and rate-limit simulation are
-also deliberately out of scope. See the [parity matrix](parity-matrix.md).
+No — both are deliberately out of scope. A test drives a single virtual shard, and skipping
+rate limits keeps tests fast; use `inject_error` to exercise your `429` handling. See the
+[parity matrix](parity-matrix.md).
 
 ## Which Python and discord.py versions are supported?
 

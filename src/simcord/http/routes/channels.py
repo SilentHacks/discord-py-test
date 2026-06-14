@@ -23,6 +23,15 @@ def edit_channel(ctx: RequestContext) -> Any:
     body = ctx.body()
     editable = ("name", "topic", "nsfw", "rate_limit_per_user", "available_tags")
     changes = {key: body[key] for key in editable if key in body}
+    thread_metadata: dict[str, Any] | None = None
+    if channel.is_thread:
+        thread_metadata = {
+            key: body[key]
+            for key in ("archived", "locked", "auto_archive_duration", "invitable")
+            if key in body
+        }
+        if "applied_tags" in body:
+            changes["applied_tags"] = [int(t) for t in body["applied_tags"]]
     if "available_tags" in changes:
         # Discord assigns an id to each newly created forum tag. discord.py's
         # ForumTag.to_dict omits ``id`` for unsaved tags, so a missing/falsy id
@@ -43,7 +52,9 @@ def edit_channel(ctx: RequestContext) -> Any:
             for o in body["permission_overwrites"]
         ]
     old = {key: getattr(channel, key) for key in changes}
-    channel = backend.edit_channel(channel.id, changes, overwrites=overwrites)
+    channel = backend.edit_channel(
+        channel.id, changes, overwrites=overwrites, thread_metadata=thread_metadata
+    )
     if channel.guild_id is not None:
         audit_changes = [
             {"key": key, "old_value": old[key], "new_value": getattr(channel, key)}
@@ -177,6 +188,67 @@ def create_thread_from_message(ctx: RequestContext) -> Any:
         auto_archive_duration=int(body.get("auto_archive_duration", 1440)),
     )
     return dict(serializers.thread_payload(backend, thread))
+
+
+@route("PUT", "/channels/{channel_id}/thread-members/@me")
+def join_thread(ctx: RequestContext) -> Any:
+    backend = ctx.backend
+    backend.add_thread_member(ctx.int_arg("channel_id"), backend.bot_user.id)
+
+
+@route("DELETE", "/channels/{channel_id}/thread-members/@me")
+def leave_thread(ctx: RequestContext) -> Any:
+    backend = ctx.backend
+    backend.remove_thread_member(ctx.int_arg("channel_id"), backend.bot_user.id)
+
+
+@route("PUT", "/channels/{channel_id}/thread-members/{user_id}")
+def add_thread_member(ctx: RequestContext) -> Any:
+    ctx.backend.add_thread_member(ctx.int_arg("channel_id"), ctx.int_arg("user_id"))
+
+
+@route("DELETE", "/channels/{channel_id}/thread-members/{user_id}")
+def remove_thread_member(ctx: RequestContext) -> Any:
+    ctx.backend.remove_thread_member(ctx.int_arg("channel_id"), ctx.int_arg("user_id"))
+
+
+@route("GET", "/channels/{channel_id}/thread-members")
+def list_thread_members(ctx: RequestContext) -> Any:
+    thread = ctx.backend.get_thread(ctx.int_arg("channel_id"))
+    return [serializers.thread_member_payload(thread, uid) for uid in thread.thread_members]
+
+
+@route("GET", "/channels/{channel_id}/thread-members/{user_id}")
+def get_thread_member(ctx: RequestContext) -> Any:
+    thread = ctx.backend.get_thread(ctx.int_arg("channel_id"))
+    user_id = ctx.int_arg("user_id")
+    if user_id not in thread.thread_members:
+        raise errors.unknown_member()
+    return serializers.thread_member_payload(thread, user_id)
+
+
+def _archived_threads(ctx: RequestContext, *, private: bool, joined_only: bool = False) -> dict[str, Any]:
+    backend = ctx.backend
+    threads = backend.archived_threads(ctx.int_arg("channel_id"), private=private)
+    if joined_only:
+        threads = [t for t in threads if backend.bot_user.id in t.thread_members]
+    return serializers.thread_list_payload(backend, threads, has_more=False)
+
+
+@route("GET", "/channels/{channel_id}/threads/archived/public")
+def archived_public_threads(ctx: RequestContext) -> Any:
+    return _archived_threads(ctx, private=False)
+
+
+@route("GET", "/channels/{channel_id}/threads/archived/private")
+def archived_private_threads(ctx: RequestContext) -> Any:
+    return _archived_threads(ctx, private=True)
+
+
+@route("GET", "/channels/{channel_id}/users/@me/threads/archived/private")
+def joined_archived_private_threads(ctx: RequestContext) -> Any:
+    # The `@me` variant is scoped to the private archived threads the bot joined.
+    return _archived_threads(ctx, private=True, joined_only=True)
 
 
 @route("POST", "/channels/{channel_id}/webhooks")

@@ -24,6 +24,7 @@ from .models import (
     Poll,
     Role,
     ScheduledEvent,
+    StageInstance,
     Sticker,
     User,
     VoiceState,
@@ -171,7 +172,7 @@ def thread_payload(backend: Backend, thread: Channel) -> thread_types.Thread:
             "last_message_id": str(thread.last_message_id) if thread.last_message_id else None,
             "rate_limit_per_user": thread.rate_limit_per_user,
             "message_count": thread.message_count,
-            "member_count": (thread.message_count and 1) or 0,
+            "member_count": len(thread.thread_members),
             "total_message_sent": thread.message_count,
             "applied_tags": [str(t) for t in thread.applied_tags],
             "flags": 0,
@@ -181,9 +182,41 @@ def thread_payload(backend: Backend, thread: Channel) -> thread_types.Thread:
                 "archive_timestamp": meta.archive_timestamp,
                 "locked": meta.locked,
                 "create_timestamp": meta.create_timestamp,
+                "invitable": meta.invitable,
             },
         },
     )
+
+
+def thread_member_payload(thread: Channel, user_id: int) -> dict[str, Any]:
+    return {
+        "id": str(thread.id),
+        "user_id": str(user_id),
+        "join_timestamp": thread.thread_members[user_id],
+        "flags": 0,
+    }
+
+
+def thread_list_payload(
+    backend: Backend, threads: list[Channel], *, has_more: bool | None = None
+) -> dict[str, Any]:
+    """The `{threads, members}` envelope shared by the active/archived listings.
+
+    ``members`` carries the bot's own thread-member entry for each thread it has
+    joined (which is all discord.py needs to populate ``Thread.me``). ``has_more``
+    is included only when provided — the active-threads endpoint omits it.
+    """
+    payload: dict[str, Any] = {
+        "threads": [dict(thread_payload(backend, t)) for t in threads],
+        "members": [
+            thread_member_payload(t, backend.bot_user.id)
+            for t in threads
+            if backend.bot_user.id in t.thread_members
+        ],
+    }
+    if has_more is not None:
+        payload["has_more"] = has_more
+    return payload
 
 
 def emoji_payload(emoji: str) -> dict[str, Any]:
@@ -461,6 +494,20 @@ def guild_emoji_payload(backend: Backend, emoji: GuildEmoji) -> dict[str, Any]:
         "managed": emoji.managed,
         "animated": emoji.animated,
         "available": emoji.available,
+    }
+
+
+def stage_instance_payload(instance: StageInstance) -> dict[str, Any]:
+    return {
+        "id": str(instance.id),
+        "guild_id": str(instance.guild_id),
+        "channel_id": str(instance.channel_id),
+        "topic": instance.topic,
+        "privacy_level": instance.privacy_level,
+        "discoverable_disabled": instance.discoverable_disabled,
+        "guild_scheduled_event_id": (
+            str(instance.scheduled_event_id) if instance.scheduled_event_id else None
+        ),
     }
 
 
