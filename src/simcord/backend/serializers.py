@@ -56,7 +56,7 @@ if TYPE_CHECKING:
         user as user_types,
     )
 
-    from .state import Backend
+    from .state import BackendBase
 
 
 def user_payload(user: User) -> user_types.User:
@@ -99,7 +99,7 @@ def role_payload(role: Role) -> role_types.Role:
 
 
 def member_payload(
-    backend: Backend, guild: Guild, member: Member, *, with_user: bool = True
+    backend: BackendBase, guild: Guild, member: Member, *, with_user: bool = True
 ) -> member_types.MemberWithUser:
     payload: dict[str, Any] = {
         "roles": [str(r) for r in member.role_ids],
@@ -125,7 +125,7 @@ def overwrite_payloads(channel: Channel) -> list[dict[str, Any]]:
     ]
 
 
-def channel_payload(backend: Backend, channel: Channel) -> channel_types.GuildChannel:
+def channel_payload(backend: BackendBase, channel: Channel) -> channel_types.GuildChannel:
     if channel.is_thread:
         return cast("channel_types.GuildChannel", thread_payload(backend, channel))
     payload: dict[str, Any] = {
@@ -157,7 +157,7 @@ def channel_payload(backend: Backend, channel: Channel) -> channel_types.GuildCh
     return cast("channel_types.GuildChannel", payload)
 
 
-def thread_payload(backend: Backend, thread: Channel) -> thread_types.Thread:
+def thread_payload(backend: BackendBase, thread: Channel) -> thread_types.Thread:
     meta = thread.thread_metadata
     assert meta is not None
     return cast(
@@ -198,7 +198,7 @@ def thread_member_payload(thread: Channel, user_id: int) -> dict[str, Any]:
 
 
 def thread_list_payload(
-    backend: Backend, threads: list[Channel], *, has_more: bool | None = None
+    backend: BackendBase, threads: list[Channel], *, has_more: bool | None = None
 ) -> dict[str, Any]:
     """The `{threads, members}` envelope shared by the active/archived listings.
 
@@ -227,7 +227,7 @@ def emoji_payload(emoji: str) -> dict[str, Any]:
 
 
 def message_payload(
-    backend: Backend,
+    backend: BackendBase,
     message: Message,
     *,
     for_user: int | None = None,
@@ -313,7 +313,7 @@ def poll_payload(poll: Poll, *, for_user: int | None = None) -> dict[str, Any]:
     }
 
 
-def guild_create_payload(backend: Backend, guild: Guild) -> guild_types.Guild:
+def guild_create_payload(backend: BackendBase, guild: Guild) -> guild_types.Guild:
     return cast(
         "guild_types.Guild",
         {
@@ -370,7 +370,7 @@ def guild_create_payload(backend: Backend, guild: Guild) -> guild_types.Guild:
     )
 
 
-def webhook_payload(backend: Backend, webhook: Webhook, *, include_token: bool = True) -> dict[str, Any]:
+def webhook_payload(backend: BackendBase, webhook: Webhook, *, include_token: bool = True) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "id": str(webhook.id),
         "type": 1,
@@ -398,7 +398,7 @@ def audit_log_entry_payload(entry: AuditLogEntry) -> dict[str, Any]:
     }
 
 
-def audit_log_payload(backend: Backend, entries: list[AuditLogEntry]) -> dict[str, Any]:
+def audit_log_payload(backend: BackendBase, entries: list[AuditLogEntry]) -> dict[str, Any]:
     """A GET /audit-logs response: entries (newest first) plus referenced users."""
     user_ids: set[int] = set()
     for entry in entries:
@@ -417,7 +417,7 @@ def audit_log_payload(backend: Backend, entries: list[AuditLogEntry]) -> dict[st
     }
 
 
-def scheduled_event_payload(backend: Backend, event: ScheduledEvent) -> dict[str, Any]:
+def scheduled_event_payload(backend: BackendBase, event: ScheduledEvent) -> dict[str, Any]:
     return {
         "id": str(event.id),
         "guild_id": str(event.guild_id),
@@ -440,7 +440,9 @@ def scheduled_event_payload(backend: Backend, event: ScheduledEvent) -> dict[str
     }
 
 
-def voice_state_payload(backend: Backend, state: VoiceState, *, with_member: bool = True) -> dict[str, Any]:
+def voice_state_payload(
+    backend: BackendBase, state: VoiceState, *, with_member: bool = True
+) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "guild_id": str(state.guild_id),
         "channel_id": str(state.channel_id) if state.channel_id is not None else None,
@@ -461,7 +463,7 @@ def voice_state_payload(backend: Backend, state: VoiceState, *, with_member: boo
     return payload
 
 
-def invite_payload(backend: Backend, invite: Invite, *, with_inviter: bool = True) -> dict[str, Any]:
+def invite_payload(backend: BackendBase, invite: Invite, *, with_inviter: bool = True) -> dict[str, Any]:
     channel = backend.channels.get(invite.channel_id)
     payload: dict[str, Any] = {
         "code": invite.code,
@@ -484,7 +486,7 @@ def invite_payload(backend: Backend, invite: Invite, *, with_inviter: bool = Tru
     return payload
 
 
-def guild_emoji_payload(backend: Backend, emoji: GuildEmoji) -> dict[str, Any]:
+def guild_emoji_payload(backend: BackendBase, emoji: GuildEmoji) -> dict[str, Any]:
     return {
         "id": str(emoji.id),
         "name": emoji.name,
@@ -511,7 +513,7 @@ def stage_instance_payload(instance: StageInstance) -> dict[str, Any]:
     }
 
 
-def sticker_payload(backend: Backend, sticker: Sticker) -> dict[str, Any]:
+def sticker_payload(backend: BackendBase, sticker: Sticker) -> dict[str, Any]:
     return {
         "id": str(sticker.id),
         "name": sticker.name,
@@ -525,7 +527,7 @@ def sticker_payload(backend: Backend, sticker: Sticker) -> dict[str, Any]:
     }
 
 
-def auto_mod_rule_payload(backend: Backend, rule: AutoModRule) -> dict[str, Any]:
+def auto_mod_rule_payload(backend: BackendBase, rule: AutoModRule) -> dict[str, Any]:
     return {
         "id": str(rule.id),
         "guild_id": str(rule.guild_id),
