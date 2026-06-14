@@ -1,1 +1,0 @@
-Complete the thread surface: `Thread.join`/`leave`, `add_user`/`remove_user`, `fetch_members`/`fetch_member`, `Guild.active_threads`, `TextChannel.archived_threads`, and `Thread.edit(archived=..., locked=..., auto_archive_duration=..., invitable=...)` — which previously returned `200` but silently dropped the change.

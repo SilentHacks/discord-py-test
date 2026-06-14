@@ -1,1 +1,0 @@
-Support application-owned emojis (`Client.create_application_emoji`, `fetch_application_emojis`, `fetch_application_emoji`, edit/delete) and stage instances (`StageChannel.create_instance`/`fetch_instance`, `StageInstance.edit`/`delete`) with `STAGE_INSTANCE_*` gateway events.

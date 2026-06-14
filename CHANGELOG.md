@@ -4,6 +4,23 @@ This changelog is generated with [towncrier](https://towncrier.readthedocs.io/).
 
 <!-- towncrier release notes start -->
 
+## 0.8.0 (2026-06-14)
+
+### Features
+
+- Support application-owned emojis (`Client.create_application_emoji`, `fetch_application_emojis`, `fetch_application_emoji`, edit/delete) and stage instances (`StageChannel.create_instance`/`fetch_instance`, `StageInstance.edit`/`delete`) with `STAGE_INSTANCE_*` gateway events.
+- Add the high-frequency moderation and announcement calls: `Guild.bulk_ban`, `Guild.prune_members`/`Guild.estimate_pruned_members` (roleless members modelled as inactive), and `Message.publish` for announcement (news) channels, with a new `guild.create_news_channel(...)` builder.
+- Complete the thread surface: `Thread.join`/`leave`, `add_user`/`remove_user`, `fetch_members`/`fetch_member`, `Guild.active_threads`, `TextChannel.archived_threads`, and `Thread.edit(archived=..., locked=..., auto_archive_duration=..., invitable=...)` — which previously returned `200` but silently dropped the change.
+
+### Bug fixes
+
+- Harden the new parity surface: a member who is kicked/banned/pruned now also leaves every thread (so `member_count` and thread-member listings stay correct), `bulk_ban` returns its `banned`/`failed` split instead of a spurious `Forbidden` when nobody could be banned (and rejects an empty `user_ids`), `estimate_pruned_members` enforces `kick_members`, deleting a stage channel closes its live stage instance, opening a second stage instance on a channel is rejected, re-publishing an already-crossposted message raises (`40033`), the thread-member endpoints fail with `50024` on non-thread channels, and an application-emoji edit that omits `name` no longer errors.
+
+### Miscellaneous
+
+- Drop the "multiple bots in one Env" non-feature from the docs (it is not a planned direction), and ratchet the coverage floor to 84%.
+
+
 ## 0.7.0 (2026-06-13)
 
 ### Features
