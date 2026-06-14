@@ -84,6 +84,10 @@ def cannot_dm_bot() -> BackendError:
     return BackendError(403, 50007, "Cannot send messages to this user")
 
 
+def cannot_execute_on_channel_type() -> BackendError:
+    return BackendError(400, 50024, "Cannot execute action on this channel type")
+
+
 def unknown_invite() -> BackendError:
     return BackendError(404, 10006, "Unknown Invite")
 

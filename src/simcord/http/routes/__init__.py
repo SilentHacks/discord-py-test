@@ -13,6 +13,7 @@ from . import (
     messages,
     reactions,
     scheduled_events,
+    stage_instances,
 )
 
 __all__ = (
@@ -28,4 +29,5 @@ __all__ = (
     "messages",
     "reactions",
     "scheduled_events",
+    "stage_instances",
 )

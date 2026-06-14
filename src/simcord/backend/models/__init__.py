@@ -16,6 +16,7 @@ from .member import Member
 from .message import EPHEMERAL_FLAG, Message, Poll, PollAnswer, Reaction
 from .role import Role
 from .scheduled_event import ScheduledEvent
+from .stage_instance import StageInstance
 from .user import User
 from .voice import VoiceState
 from .webhook import Webhook
@@ -38,6 +39,7 @@ __all__ = (
     "ResponseKind",
     "Role",
     "ScheduledEvent",
+    "StageInstance",
     "Sticker",
     "ThreadMetadata",
     "User",
