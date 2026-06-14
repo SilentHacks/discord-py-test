@@ -50,7 +50,6 @@ if your bot needs it.
 | Auto-moderation | ✅ | Rule CRUD + keyword & mention-spam execution (block/alert) on send |
 | View timeout fast-forward (`advance_time`) | ✅ | Virtual clock; fires view timeouts, cooldowns, sleep chains |
 | Rate limit simulation | ❌ | Deliberate: tests stay fast; use `inject_error` for 429 paths |
-| Multiple bots in one Env | ❌ | The backend broadcasts to N clients, but `Env` currently drives one bot |
 | Sharding simulation | ❌ | Single virtual shard |
 
 ## Implemented routes
