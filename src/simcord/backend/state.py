@@ -362,10 +362,16 @@ class Backend:
 
     def announce_channel_update(self, channel_id: int) -> None:
         channel = self.get_channel(channel_id)
-        self.emit("CHANNEL_UPDATE", serializers.channel_payload(self, channel))
+        event = "THREAD_UPDATE" if channel.is_thread else "CHANNEL_UPDATE"
+        self.emit(event, serializers.channel_payload(self, channel))
 
     def edit_channel(
-        self, channel_id: int, changes: Mapping[str, Any], *, overwrites: list[Overwrite] | None = None
+        self,
+        channel_id: int,
+        changes: Mapping[str, Any],
+        *,
+        overwrites: list[Overwrite] | None = None,
+        thread_metadata: Mapping[str, Any] | None = None,
     ) -> Channel:
         """Apply field/overwrite changes to a channel and announce the update."""
         channel = self.get_channel(channel_id)
@@ -373,8 +379,51 @@ class Backend:
             setattr(channel, attr, value)
         if overwrites is not None:
             channel.overwrites = overwrites
+        if thread_metadata and channel.thread_metadata is not None:
+            for attr, value in thread_metadata.items():
+                setattr(channel.thread_metadata, attr, value)
         self.announce_channel_update(channel.id)
         return channel
+
+    # ---------------------------------------------------------- thread members
+
+    def add_thread_member(self, thread_id: int, user_id: int) -> Channel:
+        thread = self.get_channel(thread_id)
+        if user_id not in thread.thread_members:
+            thread.thread_members[user_id] = self.now_iso()
+            payload = dict(serializers.thread_payload(self, thread))
+            payload["added_members"] = [serializers.thread_member_payload(thread, user_id)]
+            self.emit("THREAD_MEMBERS_UPDATE", payload)
+        return thread
+
+    def remove_thread_member(self, thread_id: int, user_id: int) -> Channel:
+        thread = self.get_channel(thread_id)
+        if thread.thread_members.pop(user_id, None) is not None:
+            payload = dict(serializers.thread_payload(self, thread))
+            payload["removed_member_ids"] = [str(user_id)]
+            self.emit("THREAD_MEMBERS_UPDATE", payload)
+        return thread
+
+    def active_threads(self, guild_id: int) -> list[Channel]:
+        guild = self.get_guild(guild_id)
+        return [
+            t
+            for tid in guild.thread_ids
+            if (t := self.channels.get(tid)) is not None
+            and t.thread_metadata is not None
+            and not t.thread_metadata.archived
+        ]
+
+    def archived_threads(self, channel_id: int, *, private: bool) -> list[Channel]:
+        kind = ChannelType.PRIVATE_THREAD if private else ChannelType.PUBLIC_THREAD
+        return [
+            t
+            for t in self.channels.values()
+            if t.parent_id == channel_id
+            and t.type == kind
+            and t.thread_metadata is not None
+            and t.thread_metadata.archived
+        ]
 
     def set_overwrite(self, channel_id: int, overwrite: Overwrite) -> None:
         """Add or replace a single permission overwrite and announce the update."""
@@ -425,6 +474,7 @@ class Backend:
                 auto_archive_duration=auto_archive_duration, archive_timestamp=now, create_timestamp=now
             ),
         )
+        thread.thread_members[owner_id] = now
         self.channels[thread.id] = thread
         self.messages.setdefault(thread.id, {})
         guild.thread_ids.append(thread.id)

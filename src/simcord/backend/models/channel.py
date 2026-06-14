@@ -23,6 +23,7 @@ class ThreadMetadata:
     archive_timestamp: str = ""
     locked: bool = False
     create_timestamp: str = ""
+    invitable: bool = True
 
 
 @dataclass
@@ -51,6 +52,7 @@ class Channel:
     thread_metadata: ThreadMetadata | None = None
     message_count: int = 0
     applied_tags: list[int] = field(default_factory=list)  # forum-post threads
+    thread_members: dict[int, str] = field(default_factory=dict)  # user_id -> join ISO
 
     @property
     def is_thread(self) -> bool:

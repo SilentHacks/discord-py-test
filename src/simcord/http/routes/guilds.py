@@ -71,6 +71,20 @@ def edit_guild(ctx: RequestContext) -> Any:
     return dict(serializers.guild_create_payload(backend, guild))
 
 
+@route("GET", "/guilds/{guild_id}/threads/active")
+def active_guild_threads(ctx: RequestContext) -> Any:
+    backend = ctx.backend
+    threads = backend.active_threads(ctx.int_arg("guild_id"))
+    return {
+        "threads": [dict(serializers.thread_payload(backend, t)) for t in threads],
+        "members": [
+            serializers.thread_member_payload(t, backend.bot_user.id)
+            for t in threads
+            if backend.bot_user.id in t.thread_members
+        ],
+    }
+
+
 @route("POST", "/guilds/{guild_id}/channels")
 def create_guild_channel(ctx: RequestContext) -> Any:
     backend = ctx.backend

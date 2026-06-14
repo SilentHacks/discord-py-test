@@ -21,7 +21,7 @@ if your bot needs it.
 | Typing | ✅ | Both directions |
 | Reactions | ✅ | Add/remove/list, clear-all & clear-emoji, gateway events |
 | DM channels | ✅ | User→bot and bot→user |
-| Threads | ✅ | Create (standalone & from message), messaging within |
+| Threads | ✅ | Create (standalone & from message), messaging within; join/leave, add/remove member, `fetch_members`, `archived_threads`, `Guild.active_threads`, `edit(archived=/locked=)` |
 | Forum posts | ✅ | `ForumChannel.create_thread` (starter message + `applied_tags`); tag config via edit |
 | Prefix commands (`ext.commands`) | ✅ | Converters, checks, cooldowns, error handlers |
 | Permissions engine | ✅ | Overwrites, hierarchy, timeouts, owner/admin |
@@ -59,7 +59,7 @@ so it is exact by construction.
 
 <!-- routes:begin (generated — do not edit by hand) -->
 
-99 routes implemented. Anything else fails loudly with `RouteNotImplemented`.
+109 routes implemented. Anything else fails loudly with `RouteNotImplemented`.
 
 | Method | Route |
 | --- | --- |
@@ -93,8 +93,17 @@ so it is exact by construction.
 | `DELETE` | `/channels/{channel_id}/permissions/{target_id}` |
 | `GET` | `/channels/{channel_id}/polls/{message_id}/answers/{answer_id}` |
 | `POST` | `/channels/{channel_id}/polls/{message_id}/expire` |
+| `GET` | `/channels/{channel_id}/thread-members` |
+| `PUT` | `/channels/{channel_id}/thread-members/@me` |
+| `DELETE` | `/channels/{channel_id}/thread-members/@me` |
+| `GET` | `/channels/{channel_id}/thread-members/{user_id}` |
+| `PUT` | `/channels/{channel_id}/thread-members/{user_id}` |
+| `DELETE` | `/channels/{channel_id}/thread-members/{user_id}` |
 | `POST` | `/channels/{channel_id}/threads` |
+| `GET` | `/channels/{channel_id}/threads/archived/private` |
+| `GET` | `/channels/{channel_id}/threads/archived/public` |
 | `POST` | `/channels/{channel_id}/typing` |
+| `GET` | `/channels/{channel_id}/users/@me/threads/archived/private` |
 | `GET` | `/channels/{channel_id}/webhooks` |
 | `POST` | `/channels/{channel_id}/webhooks` |
 | `POST` | `/guilds` |
@@ -139,6 +148,7 @@ so it is exact by construction.
 | `GET` | `/guilds/{guild_id}/stickers/{sticker_id}` |
 | `PATCH` | `/guilds/{guild_id}/stickers/{sticker_id}` |
 | `DELETE` | `/guilds/{guild_id}/stickers/{sticker_id}` |
+| `GET` | `/guilds/{guild_id}/threads/active` |
 | `PATCH` | `/guilds/{guild_id}/voice-states/@me` |
 | `PATCH` | `/guilds/{guild_id}/voice-states/{user_id}` |
 | `GET` | `/guilds/{guild_id}/webhooks` |

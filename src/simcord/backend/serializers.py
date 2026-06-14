@@ -171,7 +171,7 @@ def thread_payload(backend: Backend, thread: Channel) -> thread_types.Thread:
             "last_message_id": str(thread.last_message_id) if thread.last_message_id else None,
             "rate_limit_per_user": thread.rate_limit_per_user,
             "message_count": thread.message_count,
-            "member_count": (thread.message_count and 1) or 0,
+            "member_count": len(thread.thread_members),
             "total_message_sent": thread.message_count,
             "applied_tags": [str(t) for t in thread.applied_tags],
             "flags": 0,
@@ -181,9 +181,19 @@ def thread_payload(backend: Backend, thread: Channel) -> thread_types.Thread:
                 "archive_timestamp": meta.archive_timestamp,
                 "locked": meta.locked,
                 "create_timestamp": meta.create_timestamp,
+                "invitable": meta.invitable,
             },
         },
     )
+
+
+def thread_member_payload(thread: Channel, user_id: int) -> dict[str, Any]:
+    return {
+        "id": str(thread.id),
+        "user_id": str(user_id),
+        "join_timestamp": thread.thread_members[user_id],
+        "flags": 0,
+    }
 
 
 def emoji_payload(emoji: str) -> dict[str, Any]:
