@@ -33,6 +33,7 @@ from .models import (
     Reaction,
     Role,
     ScheduledEvent,
+    StageInstance,
     Sticker,
     ThreadMetadata,
     User,
@@ -79,6 +80,8 @@ class Backend:
         self.webhook_tokens: dict[str, int] = {}
         self.dm_channels: dict[int, int] = {}  # user id -> channel id
         self.invites: dict[str, Invite] = {}  # code -> invite
+        self.application_emojis: dict[int, GuildEmoji] = {}  # app-owned emojis (no guild)
+        self.stage_instances: dict[int, StageInstance] = {}  # keyed by stage channel id
         self.commands: dict[
             int | None, dict[tuple[str, int], dict[str, Any]]
         ] = {}  # scope -> (name, type) -> command
@@ -1043,6 +1046,65 @@ class Backend:
                 "emojis": [serializers.guild_emoji_payload(self, e) for e in guild.emojis.values()],
             },
         )
+
+    # --------------------------------------------------- application emojis
+    # Application-owned emojis are not scoped to a guild and are not announced
+    # over the gateway — they only exist via the REST API a bot polls.
+
+    def create_application_emoji(self, name: str, *, animated: bool = False) -> GuildEmoji:
+        emoji = GuildEmoji(id=self.snowflake(), name=name, user_id=self.bot_user.id, animated=animated)
+        self.application_emojis[emoji.id] = emoji
+        return emoji
+
+    def get_application_emoji(self, emoji_id: int) -> GuildEmoji:
+        emoji = self.application_emojis.get(emoji_id)
+        if emoji is None:
+            raise errors.unknown_emoji()
+        return emoji
+
+    def edit_application_emoji(self, emoji_id: int, name: str) -> GuildEmoji:
+        emoji = self.get_application_emoji(emoji_id)
+        emoji.name = name
+        return emoji
+
+    def delete_application_emoji(self, emoji_id: int) -> None:
+        self.get_application_emoji(emoji_id)
+        del self.application_emojis[emoji_id]
+
+    # ------------------------------------------------------- stage instances
+
+    def create_stage_instance(self, channel_id: int, topic: str, *, privacy_level: int = 2) -> StageInstance:
+        channel = self.get_channel(channel_id)
+        if channel.type != ChannelType.STAGE_VOICE:
+            raise errors.cannot_execute_on_channel_type()
+        instance = StageInstance(
+            id=self.snowflake(),
+            guild_id=channel.guild_id,  # type: ignore[arg-type]
+            channel_id=channel_id,
+            topic=topic,
+            privacy_level=privacy_level,
+        )
+        self.stage_instances[channel_id] = instance
+        self.emit("STAGE_INSTANCE_CREATE", serializers.stage_instance_payload(instance))
+        return instance
+
+    def get_stage_instance(self, channel_id: int) -> StageInstance:
+        instance = self.stage_instances.get(channel_id)
+        if instance is None:
+            raise errors.unknown_channel()
+        return instance
+
+    def edit_stage_instance(self, channel_id: int, changes: Mapping[str, Any]) -> StageInstance:
+        instance = self.get_stage_instance(channel_id)
+        for attr, value in changes.items():
+            setattr(instance, attr, value)
+        self.emit("STAGE_INSTANCE_UPDATE", serializers.stage_instance_payload(instance))
+        return instance
+
+    def delete_stage_instance(self, channel_id: int) -> None:
+        instance = self.get_stage_instance(channel_id)
+        del self.stage_instances[channel_id]
+        self.emit("STAGE_INSTANCE_DELETE", serializers.stage_instance_payload(instance))
 
     def create_sticker(
         self, guild_id: int, name: str, user_id: int, *, description: str | None = None, tags: str = ""

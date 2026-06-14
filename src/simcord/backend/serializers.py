@@ -474,6 +474,20 @@ def guild_emoji_payload(backend: Backend, emoji: GuildEmoji) -> dict[str, Any]:
     }
 
 
+def stage_instance_payload(instance: Any) -> dict[str, Any]:
+    return {
+        "id": str(instance.id),
+        "guild_id": str(instance.guild_id),
+        "channel_id": str(instance.channel_id),
+        "topic": instance.topic,
+        "privacy_level": instance.privacy_level,
+        "discoverable_disabled": instance.discoverable_disabled,
+        "guild_scheduled_event_id": (
+            str(instance.scheduled_event_id) if instance.scheduled_event_id else None
+        ),
+    }
+
+
 def sticker_payload(backend: Backend, sticker: Sticker) -> dict[str, Any]:
     return {
         "id": str(sticker.id),

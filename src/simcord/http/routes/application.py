@@ -38,6 +38,39 @@ def application_info(ctx: RequestContext) -> Any:
     }
 
 
+@route("GET", "/applications/{application_id}/emojis")
+def list_application_emojis(ctx: RequestContext) -> Any:
+    backend = ctx.backend
+    return {
+        "items": [serializers.guild_emoji_payload(backend, e) for e in backend.application_emojis.values()]
+    }
+
+
+@route("POST", "/applications/{application_id}/emojis")
+def create_application_emoji(ctx: RequestContext) -> Any:
+    backend = ctx.backend
+    emoji = backend.create_application_emoji(ctx.body()["name"])
+    return serializers.guild_emoji_payload(backend, emoji)
+
+
+@route("GET", "/applications/{application_id}/emojis/{emoji_id}")
+def get_application_emoji(ctx: RequestContext) -> Any:
+    backend = ctx.backend
+    return serializers.guild_emoji_payload(backend, backend.get_application_emoji(ctx.int_arg("emoji_id")))
+
+
+@route("PATCH", "/applications/{application_id}/emojis/{emoji_id}")
+def edit_application_emoji(ctx: RequestContext) -> Any:
+    backend = ctx.backend
+    emoji = backend.edit_application_emoji(ctx.int_arg("emoji_id"), ctx.body()["name"])
+    return serializers.guild_emoji_payload(backend, emoji)
+
+
+@route("DELETE", "/applications/{application_id}/emojis/{emoji_id}")
+def delete_application_emoji(ctx: RequestContext) -> Any:
+    ctx.backend.delete_application_emoji(ctx.int_arg("emoji_id"))
+
+
 @route("POST", "/users/@me/channels")
 def create_dm(ctx: RequestContext) -> Any:
     # Real Discord happily opens the DM channel even for a bot recipient; the

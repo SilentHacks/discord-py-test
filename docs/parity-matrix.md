@@ -44,8 +44,9 @@ if your bot needs it.
 | Polls | ✅ | Message-level poll object; `actor.vote`, expiry (route + `advance_time`), vote events |
 | Scheduled events | ✅ | CRUD + subscribe/unsubscribe; auto status transitions via `advance_time` |
 | Voice state | ✅ | State only — never audio; join/leave/move/mute, request-to-speak, `VOICE_STATE_UPDATE` |
+| Stage instances | ✅ | `StageChannel.create_instance`/`fetch_instance`, `StageInstance.edit`/`delete`, gateway events |
 | Invites | ✅ | Create/list/fetch/delete, gateway events |
-| Emojis & stickers | ✅ | Guild expression CRUD, update events |
+| Emojis & stickers | ✅ | Guild expression CRUD, update events; application-owned emojis (`Client.create_application_emoji`, `fetch_application_emojis`) |
 | Auto-moderation | ✅ | Rule CRUD + keyword & mention-spam execution (block/alert) on send |
 | View timeout fast-forward (`advance_time`) | ✅ | Virtual clock; fires view timeouts, cooldowns, sleep chains |
 | Rate limit simulation | ❌ | Deliberate: tests stay fast; use `inject_error` for 429 paths |
@@ -59,12 +60,17 @@ so it is exact by construction.
 
 <!-- routes:begin (generated — do not edit by hand) -->
 
-113 routes implemented. Anything else fails loudly with `RouteNotImplemented`.
+122 routes implemented. Anything else fails loudly with `RouteNotImplemented`.
 
 | Method | Route |
 | --- | --- |
 | `GET` | `/applications/{application_id}/commands` |
 | `PUT` | `/applications/{application_id}/commands` |
+| `GET` | `/applications/{application_id}/emojis` |
+| `POST` | `/applications/{application_id}/emojis` |
+| `GET` | `/applications/{application_id}/emojis/{emoji_id}` |
+| `PATCH` | `/applications/{application_id}/emojis/{emoji_id}` |
+| `DELETE` | `/applications/{application_id}/emojis/{emoji_id}` |
 | `GET` | `/applications/{application_id}/guilds/{guild_id}/commands` |
 | `PUT` | `/applications/{application_id}/guilds/{guild_id}/commands` |
 | `GET` | `/applications/{application_id}/guilds/{guild_id}/commands/{command_id}/permissions` |
@@ -160,6 +166,10 @@ so it is exact by construction.
 | `GET` | `/invites/{code}` |
 | `DELETE` | `/invites/{code}` |
 | `GET` | `/oauth2/applications/@me` |
+| `POST` | `/stage-instances` |
+| `GET` | `/stage-instances/{channel_id}` |
+| `PATCH` | `/stage-instances/{channel_id}` |
+| `DELETE` | `/stage-instances/{channel_id}` |
 | `GET` | `/users/@me` |
 | `POST` | `/users/@me/channels` |
 | `GET` | `/users/{user_id}` |
